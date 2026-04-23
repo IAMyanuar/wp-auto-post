@@ -1,11 +1,67 @@
-@import 'tailwindcss';
+@import '@fontsource/outfit/400.css';
+@import '@fontsource/outfit/500.css';
+@import '@fontsource/outfit/600.css';
+@import '@fontsource/outfit/700.css';
+@import "tailwindcss";
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS — Edit here to change the whole theme
+   All values are: hue saturation% lightness%  (HSL)
+   ═══════════════════════════════════════════════ */
+:root {
+    --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
 
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    /* ── Primary Brand (default: Black) ── */
+    --primary:        0 0% 10%;          /* Near-black */
+    --primary-hover:  0 0% 18%;          /* Slightly lighter for hover */
+    --primary-fg:     0 0% 100%;         /* White text on primary bg */
+
+    /* ── Surface Layers ── */
+    --surface-1:      220 33% 100%;      /* Pure white with a hint of clarity */
+    --surface-2:      225 40% 98.5%;     /* Very soft indigo-gray - page body background */
+    --surface-3:      225 35% 96%;       /* Slightly deeper background for subtle depth */
+
+    /* ── Borders ── */
+    --border:         220 13% 88%;       /* Default border */
+    --border-light:   220 13% 94%;       /* Lighter border */
+
+    /* ── Typography ── */
+    --text-base:      225 45% 12%;       /* Deep indigo-black for clarity */
+    --text-muted:     225 15% 42%;       /* Muted indigo-text */
+    --text-subtle:    225 15% 65%;       /* Subdued secondary info */
+
+    /* ── Accent: the one "pop" color allowed (default: sky blue) ── */
+    /* Change these 3 lines to shift the accent across the app */
+    --accent:         206 100% 50%;      /* Sky blue  e.g., 262 80% 58% = violet */
+    --accent-fg:      0 0% 100%;         /* Text on accent */
+
+    /* ── Status Colors ── */
+    --success:        142 71% 45%;
+    --success-fg:     0 0% 100%;
+    --warning:        38 92% 50%;
+    --warning-fg:     0 0% 10%;
+    --danger:         0 84% 60%;
+    --danger-fg:      0 0% 100%;
+
+    /* ── Shape & Depth ── */
+    --radius-card:    1.5rem;            /* 24px rounded card corners */
+    --radius-btn:     0.75rem;           /* 12px button corners */
+    --shadow-card:    0 4px 24px -1px rgba(0,0,0,0.03), 0 2px 8px -1px rgba(0,0,0,0.01);
+    --shadow-card-lg: 0 20px 80px -10px rgba(0,0,0,0.08), 0 4px 12px -2px rgba(0,0,0,0.02);
+    --shadow-nav:     0 1px 0px hsl(var(--border));
 }
+
+
+@plugin "@iconify/tailwind4" {
+  prefix: "icon";
+  scale: 1;
+  prefixes: material-symbols, ic, solar;
+}
+
+
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+
