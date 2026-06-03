@@ -15,6 +15,7 @@ class ArtikelGambar extends Model
         'alt_text',
         'is_featured',
         'wp_media_id',
+        'wp_media_url',
     ];
 
     protected $casts = [

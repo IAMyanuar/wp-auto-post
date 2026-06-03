@@ -113,9 +113,7 @@ class N8nWebhookController extends Controller
             return ['success' => false, 'error' => 'Website klien tidak ditemukan.'];
         }
 
-        // Gunakan accessor dari model untuk mendapatkan base url secara langsung
         $wpBaseUrl = $website->base_url;
-        $wpMediaUrl = "{$wpBaseUrl}/wp-json/wp/v2/media";
         $wpApiUrl = "{$wpBaseUrl}/wp-json/wp/v2/posts";
 
         Log::info("Mengirim ke WordPress", [
@@ -128,69 +126,30 @@ class N8nWebhookController extends Controller
             'persentase_proses' => 50,
         ]);
 
-
+        // Gambar sudah diupload ke WP sebelumnya (di ArtikelController::store/retry).
+        // Cukup ambil wp_media_id dari DB untuk dijadikan featured image.
         $featuredMediaId = null;
         $gambarFeatured = $artikel->gambarFeatured;
-
-        if ($gambarFeatured) {
-            $pathImage = storage_path('app/public/' . $gambarFeatured->path);
-            if (file_exists($pathImage)) {
-                $extension = pathinfo($pathImage, PATHINFO_EXTENSION);
-                $filename = \Illuminate\Support\Str::slug($artikel->judul) . '.' . $extension;
-                $mimeType = mime_content_type($pathImage);
-
-                try {
-                    $responseMedia = Http::withoutVerifying()
-                        ->withBasicAuth($website->username, $website->password)
-                        ->withHeaders([
-                            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-                            'Content-Type' => $mimeType,
-                        ])
-                        ->withBody(file_get_contents($pathImage), $mimeType)
-                        ->timeout(30)
-                        ->post($wpMediaUrl);
-
-                    if ($responseMedia->successful()) {
-                        $featuredMediaId = $responseMedia->json('id');
-
-                        // Simpan wp_media_id ke DB agar bisa dihapus nanti dari WP
-                        $gambarFeatured->update(['wp_media_id' => $featuredMediaId]);
-
-                        // Update alt_text media via PATCH (tidak bisa dikirim bersamaan dengan binary upload)
-                        if ($artikel->kata_kunci) {
-                            Http::withoutVerifying()
-                                ->withBasicAuth($website->username, $website->password)
-                                ->timeout(15)
-                                ->patch("{$wpBaseUrl}/wp-json/wp/v2/media/{$featuredMediaId}", [
-                                    'alt_text' => $artikel->kata_kunci,
-                                ]);
-                        }
-                    } else {
-                        Log::warning('Gagal upload gambar ke WordPress', [
-                            'artikel_id' => $artikel->id,
-                            'response' => $responseMedia->body()
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Exception upload media ke WordPress: ' . $e->getMessage());
-                }
-            }
+        if ($gambarFeatured && $gambarFeatured->wp_media_id) {
+            $featuredMediaId = $gambarFeatured->wp_media_id;
+            Log::info("Menggunakan featured media ID dari DB: {$featuredMediaId}", [
+                'artikel_id' => $artikel->id,
+            ]);
         }
 
         $wpStatus = ($artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now()) ? 'publish' : 'draft';
 
         $body = [
-            'title' => $artikel->judul,
-            'content' => $artikel->konten,
+            'title'    => $artikel->judul,
+            'content'  => $artikel->konten,
             'category' => (string) ($artikel->kategori ?? ''),
-            'tags' => (string) ($artikel->tags ?? ''),
-            'status' => $wpStatus,
+            'tags'     => (string) ($artikel->tags ?? ''),
+            'status'   => $wpStatus,
         ];
 
         if ($featuredMediaId) {
             $body['featured_media'] = $featuredMediaId;
         }
-
 
         if ($artikel->seo_title) {
             $body['slug'] = \Illuminate\Support\Str::slug($artikel->seo_title);
@@ -206,25 +165,25 @@ class N8nWebhookController extends Controller
                 $data = $response->json();
                 return [
                     'success' => true,
-                    'wp_id' => $data['id'] ?? null,
-                    'wp_url' => $data['link'] ?? null,
+                    'wp_id'   => $data['id'] ?? null,
+                    'wp_url'  => $data['link'] ?? null,
                 ];
             }
 
             Log::error('WordPress API error', [
                 'artikel_id' => $artikel->id,
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status'     => $response->status(),
+                'body'       => $response->body(),
             ]);
 
             return [
                 'success' => false,
-                'error' => "WordPress API error [{$response->status()}]: " . $response->body(),
+                'error'   => "WordPress API error [{$response->status()}]: " . $response->body(),
             ];
         } catch (\Exception $e) {
             Log::error('Exception sending to WordPress', [
                 'artikel_id' => $artikel->id,
-                'error' => $e->getMessage(),
+                'error'      => $e->getMessage(),
             ]);
 
             return ['success' => false, 'error' => $e->getMessage()];

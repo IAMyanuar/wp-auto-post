@@ -100,7 +100,7 @@ class ArtikelController extends Controller
             'use_cta' => $useCta ? 1 : 0,
         ]);
 
-        // Simpan Gambar (file upload)
+        // Simpan Gambar (file upload ke storage lokal)
         if ($request->hasFile('gambar_file')) {
             foreach ($request->file('gambar_file') as $index => $file) {
                 if ($file && $file->isValid()) {
@@ -139,13 +139,23 @@ class ArtikelController extends Controller
             }
         }
 
-        // Load relasi untuk
+        // Load relasi
         $artikel->load(['gambars', 'hyperlinks', 'websiteKlien', 'aiAgentPrompt']);
 
         \Illuminate\Support\Facades\Log::info("Mulai membuat store artikel (ID: {$artikel->id})", [
             'website' => $artikel->websiteKlien ? $artikel->websiteKlien->nama_website : 'Tidak ada',
             'judul' => $artikel->judul
         ]);
+
+        // Upload SEMUA gambar ke WordPress terlebih dahulu agar n8n mendapat URL WP yang valid
+        // sehingga gambar bisa disisipkan langsung di dalam konten artikel
+        $artikel->update([
+            'keterangan_proses' => 'Mengunggah gambar ke WordPress',
+            'persentase_proses' => 10,
+        ]);
+        $this->uploadGambarsToWordPress($artikel);
+        $artikel->refresh(); // Pastikan wp_media_url sudah terupdate
+
         $n8nData = [
             'artikel_id' => $artikel->id,
             'judul' => $artikel->judul,
@@ -153,8 +163,14 @@ class ArtikelController extends Controller
             'website' => $artikel->websiteKlien ? $artikel->websiteKlien->nama_website : null,
             'url_website' => $artikel->websiteKlien ? $artikel->websiteKlien->url_website : null,
             'prompt' => $artikel->aiAgentPrompt ? $artikel->aiAgentPrompt->prompt : null,
-            'gambars' => $artikel->gambars->pluck('path')->map(function ($path) {
-                return asset('storage/' . $path);
+            // Kirim URL WP (bukan path lokal) agar n8n bisa embed gambar di dalam konten HTML
+            'gambars' => $artikel->gambars->map(function ($gambar) {
+                return [
+                    'wp_media_id' => $gambar->wp_media_id,
+                    'wp_media_url' => $gambar->wp_media_url ?? asset('storage/' . $gambar->path),
+                    'alt_text' => $gambar->alt_text,
+                    'is_featured' => $gambar->is_featured,
+                ];
             })->toArray(),
             'internal_links' => $artikel->hyperlinks->where('tipe', 'internal')->map(function ($link) {
                 return ['url' => $link->url];
@@ -184,7 +200,7 @@ class ArtikelController extends Controller
                     'Accept' => 'application/json',
                 ])
                 ->timeout(30)
-                ->post('https://andy-biform-flukily.ngrok-free.dev/webhook-test/auto-post-n8n', $n8nData);
+                ->post('https://andy-biform-flukily.ngrok-free.dev/webhook/auto-post-n8n', $n8nData);
 
             if (!$responseN8n->successful()) {
                 \Illuminate\Support\Facades\Log::error('Error respons dari n8n saat post artikel: ' . $responseN8n->body(), [
@@ -347,6 +363,14 @@ class ArtikelController extends Controller
         // Ubah status ke diproses
         $artikel->update(['status' => 'diproses']);
 
+        // Upload ulang gambar ke WordPress agar n8n mendapat URL WP yang valid
+        $artikel->update([
+            'keterangan_proses' => 'Mengunggah ulang gambar ke WordPress',
+            'persentase_proses' => 10,
+        ]);
+        $this->uploadGambarsToWordPress($artikel);
+        $artikel->refresh();
+
         $n8nData = [
             'artikel_id' => $artikel->id,
             'judul' => $artikel->judul,
@@ -354,8 +378,14 @@ class ArtikelController extends Controller
             'website' => $artikel->websiteKlien ? $artikel->websiteKlien->nama_website : null,
             'url_website' => $artikel->websiteKlien ? $artikel->websiteKlien->url_website : null,
             'prompt' => $artikel->aiAgentPrompt ? $artikel->aiAgentPrompt->prompt : null,
-            'gambars' => $artikel->gambars->pluck('path')->map(function ($path) {
-                return asset('storage/' . $path);
+            // Kirim URL WP agar n8n bisa embed gambar di dalam konten HTML
+            'gambars' => $artikel->gambars->map(function ($gambar) {
+                return [
+                    'wp_media_id' => $gambar->wp_media_id,
+                    'wp_media_url' => $gambar->wp_media_url ?? asset('storage/' . $gambar->path),
+                    'alt_text' => $gambar->alt_text,
+                    'is_featured' => $gambar->is_featured,
+                ];
             })->toArray(),
             'internal_links' => $artikel->hyperlinks->where('tipe', 'internal')->map(function ($link) {
                 return ['url' => $link->url];
@@ -523,5 +553,92 @@ class ArtikelController extends Controller
 
         return redirect()->route('penjadwalan.index')
             ->with('success', 'Artikel beserta file gambarnya berhasil dihapus!');
+    }
+
+    /**
+     * Upload semua gambar artikel ke WordPress dan simpan wp_media_id + wp_media_url ke DB.
+     * Dipanggil di store() dan retry() SEBELUM mengirim data ke n8n,
+     * supaya n8n bisa menyisipkan gambar (via URL WP) langsung di dalam konten HTML artikel.
+     */
+    private function uploadGambarsToWordPress(Artikel $artikel): void
+    {
+        $website = $artikel->websiteKlien;
+        if (!$website) {
+            \Illuminate\Support\Facades\Log::warning("uploadGambarsToWordPress: website tidak ditemukan untuk artikel ID {$artikel->id}");
+            return;
+        }
+
+        $wpBaseUrl = $website->base_url;
+        $wpMediaEndpoint = "{$wpBaseUrl}/wp-json/wp/v2/media";
+        $auth = [$website->username, $website->password];
+
+        // Pastikan relasi gambar sudah ter-load
+        $artikel->load('gambars');
+
+        foreach ($artikel->gambars as $gambar) {
+            // Lewati jika sudah punya URL WP (sudah pernah diupload)
+            if ($gambar->wp_media_id && $gambar->wp_media_url) {
+                continue;
+            }
+
+            $pathImage = storage_path('app/public/' . $gambar->path);
+            if (!file_exists($pathImage)) {
+                \Illuminate\Support\Facades\Log::warning("File gambar tidak ditemukan: {$pathImage}");
+                continue;
+            }
+
+            $extension = pathinfo($pathImage, PATHINFO_EXTENSION);
+            // Buat nama file unik agar tidak tabrakan di media library WP
+            $filename = \Illuminate\Support\Str::slug($artikel->judul) . '-img' . $gambar->id . '.' . $extension;
+            $mimeType = mime_content_type($pathImage);
+
+            try {
+                $response = \Illuminate\Support\Facades\Http::withoutVerifying()
+                    ->withBasicAuth(...$auth)
+                    ->withHeaders([
+                        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                        'Content-Type' => $mimeType,
+                    ])
+                    ->withBody(file_get_contents($pathImage), $mimeType)
+                    ->timeout(30)
+                    ->post($wpMediaEndpoint);
+
+                if ($response->successful()) {
+                    $mediaId = $response->json('id');
+                    $mediaUrl = $response->json('source_url');
+
+                    // Perbarui alt_text media di WordPress
+                    $altText = $gambar->alt_text ?: $artikel->kata_kunci ?: $artikel->judul;
+                    \Illuminate\Support\Facades\Http::withoutVerifying()
+                        ->withBasicAuth(...$auth)
+                        ->timeout(15)
+                        ->patch("{$wpBaseUrl}/wp-json/wp/v2/media/{$mediaId}", [
+                            'alt_text' => $altText,
+                            'title' => $altText,
+                        ]);
+
+                    $gambar->update([
+                        'wp_media_id' => $mediaId,
+                        'wp_media_url' => $mediaUrl,
+                    ]);
+
+                    \Illuminate\Support\Facades\Log::info("Gambar ID {$gambar->id} berhasil diupload ke WP", [
+                        'artikel_id' => $artikel->id,
+                        'wp_media_id' => $mediaId,
+                        'wp_media_url' => $mediaUrl,
+                    ]);
+                } else {
+                    \Illuminate\Support\Facades\Log::warning("Gagal upload gambar ID {$gambar->id} ke WordPress", [
+                        'artikel_id' => $artikel->id,
+                        'status' => $response->status(),
+                        'response' => $response->body(),
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Exception upload gambar ID {$gambar->id} ke WordPress: " . $e->getMessage(), [
+                    'artikel_id' => $artikel->id,
+                ]);
+            }
+        }
     }
 }

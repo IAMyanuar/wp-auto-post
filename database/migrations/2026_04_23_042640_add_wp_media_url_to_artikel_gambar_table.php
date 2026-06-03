@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('artikel', function (Blueprint $table) {
-            $table->string('keterangan_proses', 100)->nullable()->after('status');
-            $table->integer('persentase_proses')->nullable()->after('keterangan_proses');
+        Schema::table('artikel_gambar', function (Blueprint $table) {
+            // URL publik gambar di WordPress (diisi saat upload ke WP, sebelum dikirim ke n8n)
+            $table->string('wp_media_url')->nullable()->after('wp_media_id');
         });
     }
 
@@ -22,8 +22,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('artikel', function (Blueprint $table) {
-            $table->dropColumn(['keterangan_proses', 'persentase_proses']);
+        Schema::table('artikel_gambar', function (Blueprint $table) {
+            $table->dropColumn('wp_media_url');
         });
     }
 };
