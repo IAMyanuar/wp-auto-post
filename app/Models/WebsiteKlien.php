@@ -28,18 +28,18 @@ class WebsiteKlien extends Model
         return $this->hasMany(Artikel::class, 'website_klien_id');
     }
 
+    public static function extractBaseUrl($url)
+    {
+        if (empty($url)) {
+            return null;
+        }
+        $url = preg_replace('#^([^:/]+://[^/]+).*$#', '$1', $url);
+
+        return rtrim($url, '/');
+    }
+
     public function getBaseUrlAttribute()
     {
         return self::extractBaseUrl($this->url_website);
-    }
-
-    public static function extractBaseUrl($url)
-    {
-        $parsed = parse_url($url);
-        $scheme = isset($parsed['scheme']) ? $parsed['scheme'] . '://' : 'https://';
-        $host = isset($parsed['host']) ? $parsed['host'] : '';
-        $port = isset($parsed['port']) ? ':' . $parsed['port'] : '';
-        
-        return $scheme . $host . $port;
     }
 }

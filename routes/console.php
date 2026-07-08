@@ -9,3 +9,8 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('artikel:check-scheduled')->everyMinute()->withoutOverlapping();
+
+Schedule::call(function () {
+    app(\App\Services\ArtikelService::class)->generateKonten();
+})->name('artikel:generate-konten')->everyMinute()->withoutOverlapping();
+

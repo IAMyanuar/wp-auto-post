@@ -6,24 +6,18 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::table('artikel', function (Blueprint $table) {
-            $table->string('keterangan_proses', 100)->nullable()->after('status');
-            $table->integer('persentase_proses')->nullable()->after('keterangan_proses');
+            $table->string('n8n_execution_id')->nullable()->after('wp_url');
+            $table->string('n8n_status')->nullable()->after('n8n_execution_id');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('artikel', function (Blueprint $table) {
-            $table->dropColumn(['keterangan_proses', 'persentase_proses']);
+            $table->dropColumn(['n8n_execution_id', 'n8n_status']);
         });
     }
 };

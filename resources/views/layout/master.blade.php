@@ -44,35 +44,45 @@
     </div>
 
     <!-- Toast/Alert Scripts -->
-    <script>
+    <script type="module">
+        window.getToast = function () {
+            if (!window.Toast && window.Swal) {
+                window.Toast = window.Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true,
+                    customClass: {
+                        popup: '!rounded-xl shadow-md border border-gray-100',
+                    },
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', window.Swal.stopTimer)
+                        toast.addEventListener('mouseleave', window.Swal.resumeTimer)
+                    }
+                });
+            }
+            return window.Toast;
+        };
+
+        window.showToast = function (message, type = 'success') {
+            const toastInstance = window.getToast();
+            if (toastInstance) {
+                toastInstance.fire({
+                    icon: type,
+                    title: message
+                });
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', function () {
-            const Toast = Swal.mixin({
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 1000,
-                timerProgressBar: true,
-                customClass: {
-                    popup: '!rounded-xl shadow-md border border-gray-100',
-                },
-                didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer)
-                    toast.addEventListener('mouseleave', Swal.resumeTimer)
-                }
-            });
 
             @if(session('success'))
-                Toast.fire({
-                    icon: 'success',
-                    title: '{{ session("success") }}'
-                });
+                window.showToast({!! json_encode(session("success")) !!}, 'success');
             @endif
 
             @if(session('error'))
-                Toast.fire({
-                    icon: 'error',
-                    title: '{{ session("error") }}'
-                });
+                window.showToast({!! json_encode(session("error")) !!}, 'error');
             @endif
 
             // Event delegation untuk form delete (termasuk yang di-generate JS secara dinamis)

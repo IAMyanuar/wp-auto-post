@@ -24,15 +24,6 @@
                     'anim' => 'group-hover:rotate-6',
                     'icon' => '<path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>'
                 ],
-
-                [
-                    'route' => 'ai-prompt.*',
-                    'label' => 'Prompt AI',
-                    'link' => route('ai-prompt.index'),
-                    'anim' => 'group-hover:scale-110',
-                    'icon' => '<path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 21l-2.75-1.25L19 15z"/>'
-                ],
-
                 [
                     'route' => 'web-client.*',
                     'label' => 'Web Client',
@@ -60,20 +51,26 @@
         @endphp
 
         @foreach($menuItems as $item)
-            @php $isActive = request()->routeIs($item['route']); @endphp
+            @php 
+                $isActive = request()->routeIs($item['route']); 
+                if (request()->query('from') === 'riwayat') {
+                    if ($item['route'] === 'penjadwalan.*') $isActive = false;
+                    if ($item['route'] === 'riwayat.*') $isActive = true;
+                }
+            @endphp
 
             <a href="{{ $item['link'] }}"
                 class="group relative flex flex-col md:flex-row items-center justify-center md:justify-start gap-0 md:gap-3.5 px-2 py-1.5 md:px-3 md:py-2.5 rounded-2xl md:rounded-xl transition-all duration-300
-                                                        {{ $isActive ? 'bg-gradient-to-br from-[#0d0d0d] via-[#1e1b4b] to-[#0d0d0d] to-gray-900 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 hover:scale-[1.01]' }}">
+                                                            {{ $isActive ? 'bg-gradient-to-br from-[#0d0d0d] via-[#1e1b4b] to-[#0d0d0d] to-gray-900 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 hover:scale-[1.01]' }}">
 
                 <div
                     class="flex-shrink-0 w-10 h-10 md:w-9 md:h-9 rounded-xl flex items-center justify-center transition-all duration-300
-                                                        {{ $isActive
+                                                            {{ $isActive
             ? 'bg-white/15 ring-1 ring-white/20'
             : 'bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] group-hover:shadow-none group-hover:bg-transparent group-hover:ring-0' }}">
                     <svg viewBox="0 0 24 24"
                         class="w-5 h-5 fill-current transition-all duration-300 {{ $item['anim'] }}
-                                                            {{ $isActive ? 'text-white scale-110' : 'text-gray-500 group-hover:text-gray-900' }}">
+                                                                {{ $isActive ? 'text-white scale-110' : 'text-gray-500 group-hover:text-gray-900' }}">
                         {!! $item['icon'] !!}
                     </svg>
                 </div>

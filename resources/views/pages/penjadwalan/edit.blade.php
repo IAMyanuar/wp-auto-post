@@ -7,6 +7,9 @@
     <form action="{{ route('penjadwalan.update', $artikel->id) }}" method="POST" enctype="multipart/form-data">
         @csrf
         @method('PUT')
+        @if(request()->query('from') === 'riwayat')
+            <input type="hidden" name="from" value="riwayat">
+        @endif
 
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
             {{-- Main Form Column --}}
@@ -34,7 +37,7 @@
                         </span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <a href="{{ route('penjadwalan.index') }}"
+                        <a href="{{ request()->query('from') === 'riwayat' ? route('riwayat.index') : route('penjadwalan.index') }}"
                             class="text-sm font-bold border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl transition-all shadow-sm">
                             Batal
                         </a>
@@ -57,8 +60,7 @@
                     <div class="p-6 space-y-6">
                         {{-- Judul --}}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Judul Artikel <span
-                                    class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Judul Artikel</label>
                             <input type="text" name="judul"
                                 class="w-full bg-gray-50/50 border border-gray-200 rounded-lg px-4 py-2.5 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm @error('judul') border-red-400 @enderror"
                                 value="{{ old('judul', $artikel->judul) }}">
@@ -67,51 +69,14 @@
                             @enderror
                         </div>
 
-                        @if($artikel->status !== 'terpublish')
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                {{-- Website --}}
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Website Tujuan <span
-                                            class="text-red-500">*</span></label>
-                                    <div class="relative">
-                                        <select name="website_klien_id"
-                                            class="w-full appearance-none bg-gray-50/50 border border-gray-200 rounded-lg px-4 py-2.5 pr-10 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm">
-                                            @foreach($websites as $website)
-                                                <option value="{{ $website->id }}" {{ old('website_klien_id', $artikel->website_klien_id) == $website->id ? 'selected' : '' }}>
-                                                    {{ $website->nama_website }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                            <span
-                                                class="icon-[material-symbols-light--keyboard-arrow-down] w-5 h-5 text-gray-400"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                                {{-- Template Prompt --}}
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Template Prompt <span
-                                            class="text-red-500">*</span></label>
-                                    <div class="relative">
-                                        <select name="ai_agent_prompt_id"
-                                            class="w-full appearance-none bg-gray-50/50 border border-gray-200 rounded-lg px-4 py-2.5 pr-10 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm">
-                                            @foreach($prompts as $prompt)
-                                                <option value="{{ $prompt->id }}" {{ old('ai_agent_prompt_id', $artikel->ai_agent_prompt_id) == $prompt->id ? 'selected' : '' }}>
-                                                    {{ $prompt->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                            <span
-                                                class="icon-[material-symbols-light--keyboard-arrow-down] w-5 h-5 text-gray-400"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @else
+                        {{-- Website --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Website Tujuan</label>
                             <input type="hidden" name="website_klien_id" value="{{ $artikel->website_klien_id }}">
-                            <input type="hidden" name="ai_agent_prompt_id" value="{{ $artikel->ai_agent_prompt_id }}">
-                        @endif
+                            <input type="text" readonly
+                                class="w-full bg-gray-100 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-600 cursor-not-allowed outline-none shadow-sm"
+                                value="{{ optional($artikel->websiteKlien)->nama_website ?? '-' }}">
+                        </div>
 
                         <hr class="border-gray-100">
 
@@ -178,6 +143,32 @@
                             </div>
                         </div>
                     </div>
+                @else
+                    <input type="hidden" name="tanggal_jadwal"
+                        value="{{ $artikel->tanggal_jadwal ? $artikel->tanggal_jadwal->format('Y-m-d\TH:i') : now()->format('Y-m-d\TH:i') }}">
+                @endif
+
+                @if($artikel->status === 'terpublish' && !empty($artikel->wp_id))
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+                            <div class="bg-purple-100 text-purple-600 p-2 rounded-lg flex items-center justify-center">
+                                <span class="icon-[material-symbols-light--language] w-5 h-5 block"></span>
+                            </div>
+                            <h3 class="font-semibold text-gray-800 text-base">Status di WordPress</h3>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Status Publikasi WP</label>
+                                <select name="wp_status"
+                                    class="w-full bg-gray-50/50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white transition-all shadow-sm">
+                                    <option value="publish" selected>Publish (Tetap Terbit)</option>
+                                    <option value="draft">Draft (Ubah ke Draf di WP)</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1.5">Pilih "Draft" jika ingin mengubah status artikel dari
+                                    terbit menjadi draf sementara di situs WordPress.</p>
+                            </div>
+                        </div>
+                    </div>
                 @endif
 
                 {{-- Action Card --}}
@@ -191,19 +182,34 @@
                     </div>
                 </div>
 
-                {{-- Gambar Tersimpan --}}
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-                        <div class="bg-orange-100 text-orange-600 p-2 rounded-lg flex items-center justify-center">
-                            <span class="icon-[material-symbols-light--image-outline] w-5 h-5 block"></span>
-                        </div>
-                        <div>
+                    <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-orange-100 text-orange-600 p-2 rounded-lg flex items-center justify-center">
+                                <span class="icon-[material-symbols-light--image-outline] w-5 h-5 block"></span>
+                            </div>
                             <h3 class="font-semibold text-gray-800 text-base">Gambar</h3>
                         </div>
+                        <label
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 text-xs font-bold rounded-xl cursor-pointer transition-all shadow-2xs">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
+                                </path>
+                            </svg>
+                            <span
+                                id="btn-image-label">{{ $artikel->gambars->isNotEmpty() ? 'Ubah Gambar' : 'Tambah Gambar' }}</span>
+                            <input type="file" name="gambar" accept="image/*" class="hidden"
+                                onchange="previewSelectedImages(this)">
+                        </label>
                     </div>
                     <div class="p-6 space-y-4">
+                        <div id="new-images-preview" class="hidden">
+                            <div id="preview-thumbnails" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                        </div>
+
                         @forelse($artikel->gambars as $gambar)
-                            <div class="flex items-center gap-3 p-3 border border-gray-100 rounded-xl bg-white shadow-sm">
+                            <div
+                                class="flex items-center gap-3 p-3 border border-gray-100 rounded-xl bg-white shadow-sm existing-image-item">
                                 <div
                                     class="w-16 h-16 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
                                     <img src="{{ $gambar->wp_media_url ?? Storage::url($gambar->path) }}" alt="Preview"
@@ -222,158 +228,12 @@
                                 </div>
                             </div>
                         @empty
-                            <p class="text-sm text-gray-400 text-center py-4 italic">Belum ada gambar yang diupload ke database.
+                            <p class="text-sm text-gray-400 text-center py-4 italic existing-image-item">Belum ada gambar yang
+                                diupload.
                             </p>
                         @endforelse
                     </div>
                 </div>
-
-                {{-- Card: Analisis Yoast SEO (Moved to Sidebar) --}}
-                @php
-                    $rawYoast = trim((string) $artikel->deskripsi_yoast);
-                    $yoastData = [];
-
-                    if (!empty($rawYoast)) {
-                        if ($rawYoast[0] !== '{' && $rawYoast[0] !== '[') {
-                            $rawYoast = '{' . $rawYoast;
-                        }
-
-                        $decoded = json_decode($rawYoast, true);
-
-                        if (json_last_error() !== JSON_ERROR_NONE) {
-                            $suffixes = ['}', ']}', ']} }', ']} ]} }', '"]}', '"]}}', '"]}]}'];
-                            foreach ($suffixes as $suffix) {
-                                $attempt = json_decode($rawYoast . $suffix, true);
-                                if (json_last_error() === JSON_ERROR_NONE) {
-                                    $decoded = $attempt;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (is_string($decoded)) {
-                            $decoded = json_decode($decoded, true);
-                        }
-
-                        $yoastData = is_array($decoded) ? $decoded : [];
-                    }
-
-                    $seoData = $yoastData['seo'] ?? [];
-                    $readabilityData = $yoastData['readability'] ?? [];
-
-                    // Helper function to render items
-                    $renderYoastItems = function ($items, $bgClass) {
-                        if (empty($items))
-                            return '';
-                        $html = '<ul class="space-y-3 mt-3">';
-                        foreach ($items as $item) {
-                            $parts = explode(':', $item, 2);
-                            $formattedText = count($parts) == 2
-                                ? "<span class='font-semibold text-gray-800'>{$parts[0]}:</span>" . $parts[1]
-                                : $item;
-
-                            $html .= '<li class="flex items-start gap-2.5 text-sm text-gray-600">';
-                            $html .= '<span class="mt-1 flex-shrink-0 w-2.5 h-2.5 rounded-full ' . $bgClass . '"></span>';
-                            $html .= '<p class="leading-relaxed">' . $formattedText . '</p>';
-                            $html .= '</li>';
-                        }
-                        $html .= '</ul>';
-                        return $html;
-                    };
-                @endphp
-
-                @if(!empty($seoData) || !empty($readabilityData))
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-purple-100 text-purple-600 p-2 rounded-lg">
-                                    <span class="icon-[material-symbols-light--analytics-outline] w-5 h-5 block"></span>
-                                </div>
-                                <h3 class="font-bold text-gray-800 text-base">Analisis Yoast</h3>
-                            </div>
-                        </div>
-
-                        <div class="p-6 space-y-8 divide-y divide-gray-100">
-                            {{-- SEO Section --}}
-                            <div class="pt-0">
-                                <div class="flex items-center justify-between mb-4">
-                                    <h4 class="font-bold text-gray-800 text-sm flex items-center gap-2">
-                                        <span
-                                            class="icon-[material-symbols-light--travel-explore] w-5 h-5 text-gray-500"></span>
-                                        SEO
-                                    </h4>
-                                    <span
-                                        class="px-2.5 py-1 rounded-lg text-sm font-black border {{ $artikel->skor_seo >= 80 ? 'bg-green-50 text-green-700 border-green-200' : ($artikel->skor_seo >= 50 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-700 border-red-200') }}">
-                                        {{ $artikel->skor_seo ?? 0 }}<span
-                                            class="text-[10px] opacity-60 font-normal">/100</span>
-                                    </span>
-                                </div>
-
-                                @if(!empty($seoData['problems']))
-                                    <div class="mb-4">
-                                        <h5 class="text-[11px] font-bold text-red-600 uppercase tracking-wider mb-2">Problems</h5>
-                                        {!! $renderYoastItems($seoData['problems'], 'bg-red-500') !!}
-                                    </div>
-                                @endif
-
-                                @if(!empty($seoData['improvements']))
-                                    <div class="mb-4">
-                                        <h5 class="text-[11px] font-bold text-orange-600 uppercase tracking-wider mb-2">Improvements
-                                        </h5>
-                                        {!! $renderYoastItems($seoData['improvements'], 'bg-orange-500') !!}
-                                    </div>
-                                @endif
-
-                                @if(!empty($seoData['good']))
-                                    <div>
-                                        <h5 class="text-[11px] font-bold text-green-600 uppercase tracking-wider mb-2">Good Results
-                                        </h5>
-                                        {!! $renderYoastItems($seoData['good'], 'bg-green-500') !!}
-                                    </div>
-                                @endif
-                            </div>
-
-                            {{-- Readability Section --}}
-                            <div class="pt-8">
-                                <div class="flex items-center justify-between mb-4">
-                                    <h4 class="font-bold text-gray-800 text-sm flex items-center gap-2">
-                                        <span
-                                            class="icon-[material-symbols-light--menu-book-outline] w-5 h-5 text-gray-500"></span>
-                                        Keterbacaan
-                                    </h4>
-                                    <span
-                                        class="px-2.5 py-1 rounded-lg text-sm font-black border {{ $artikel->skor_readability >= 80 ? 'bg-green-50 text-green-700 border-green-200' : ($artikel->skor_readability >= 50 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-700 border-red-200') }}">
-                                        {{ $artikel->skor_readability ?? 0 }}<span
-                                            class="text-[10px] opacity-60 font-normal">/100</span>
-                                    </span>
-                                </div>
-
-                                @if(!empty($readabilityData['problems']))
-                                    <div class="mb-4">
-                                        <h5 class="text-[11px] font-bold text-red-600 uppercase tracking-wider mb-2">Problems</h5>
-                                        {!! $renderYoastItems($readabilityData['problems'], 'bg-red-500') !!}
-                                    </div>
-                                @endif
-
-                                @if(!empty($readabilityData['improvements']))
-                                    <div class="mb-4">
-                                        <h5 class="text-[11px] font-bold text-orange-600 uppercase tracking-wider mb-2">Improvements
-                                        </h5>
-                                        {!! $renderYoastItems($readabilityData['improvements'], 'bg-orange-500') !!}
-                                    </div>
-                                @endif
-
-                                @if(!empty($readabilityData['good']))
-                                    <div>
-                                        <h5 class="text-[11px] font-bold text-green-600 uppercase tracking-wider mb-2">Good Results
-                                        </h5>
-                                        {!! $renderYoastItems($readabilityData['good'], 'bg-green-500') !!}
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                @endif
             </div>
         </div>
     </form>
@@ -412,5 +272,39 @@
                 console.warn('TinyMCE script gagal dimuat. Pastikan Anda telah meletakkan file TinyMCE di folder aplikasi Anda pada path yang benar (public/vendor/tinymce/tinymce.min.js).');
             }
         });
+
+        function previewSelectedImages(input) {
+            const container = document.getElementById('new-images-preview');
+            const thumbnails = document.getElementById('preview-thumbnails');
+            const btnLabel = document.getElementById('btn-image-label');
+            thumbnails.innerHTML = '';
+
+            if (input.files && input.files.length > 0) {
+                if (btnLabel) btnLabel.innerText = 'Ubah Gambar';
+                container.classList.remove('hidden');
+                document.querySelectorAll('.existing-image-item').forEach(el => el.classList.add('hidden'));
+                Array.from(input.files).forEach((file) => {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const div = document.createElement('div');
+                        div.className = 'flex items-center gap-3 p-2.5 bg-white border border-orange-200 rounded-xl shadow-2xs overflow-hidden';
+                        div.innerHTML = `
+                                                                        <div class="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
+                                                                            <img src="${e.target.result}" class="w-full h-full object-cover">
+                                                                        </div>
+                                                                        <div class="flex-1 min-w-0">
+                                                                            <p class="text-xs font-semibold text-gray-800 truncate" title="${file.name}">${file.name}</p>
+                                                                        </div>
+                                                                    `;
+                        thumbnails.appendChild(div);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                if (btnLabel) btnLabel.innerText = '{{ $artikel->gambars->isNotEmpty() ? "Ubah Gambar" : "Tambah Gambar" }}';
+                container.classList.add('hidden');
+                document.querySelectorAll('.existing-image-item').forEach(el => el.classList.remove('hidden'));
+            }
+        }
     </script>
 @endpush

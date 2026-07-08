@@ -123,4 +123,14 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | N8N API Token
+    |--------------------------------------------------------------------------
+    | Token ini digunakan untuk mengautentikasi request webhook yang masuk
+    | dari n8n ke endpoint /api/webhook/n8n/*. Atur via N8N_API_TOKEN di .env
+    */
+
+    'n8n_api_token' => env('N8N_API_TOKEN'),
+
 ];

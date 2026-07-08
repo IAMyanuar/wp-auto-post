@@ -3,38 +3,83 @@
 namespace App\Http\Controllers;
 
 use App\Models\Artikel;
+use App\Services\ArtikelService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use phpDocumentor\Reflection\Types\Nullable;
 
 class N8nWebhookController extends Controller
 {
-    public function receiveContent(Request $request)
+    public function __construct(protected ArtikelService $artikelService)
+    {
+    }
+
+    public function receiveJudulResult(Request $request)
+    {
+        $validated = validator($request->all(), [
+            'website_klien_id' => 'required|integer|exists:website_klien,id',
+            'perintah_artikel_id' => 'required|integer|exists:perintah_artikel,id',
+            'judul' => 'required|array|min:1',
+            'judul.*' => 'required|string|max:500',
+            'tanggal_jadwal' => 'nullable|date',
+        ], [
+            'website_klien_id.required' => 'ID website klien wajib disertakan.',
+            'perintah_artikel_id.required' => 'ID perintah artikel wajib disertakan.',
+            'website_klien_id.exists' => 'Website klien tidak ditemukan.',
+            'perintah_artikel_id.exists' => 'Perintah artikel tidak ditemukan.',
+            'judul.required' => 'Daftar judul wajib disertakan.',
+            'judul.array' => 'Daftar judul harus berupa array.',
+            'judul.min' => 'Minimal satu judul harus disertakan.',
+        ])->validate();
+
+        Log::info('Menerima daftar judul artikel dari n8n', [
+            'website_klien_id' => $validated['website_klien_id'],
+            'jumlah_judul' => count($validated['judul']),
+        ]);
+
+        $result = $this->artikelService->simpanJudulDariN8n(
+            juduls: $validated['judul'],
+            perintahArtikelId: (int) $validated['perintah_artikel_id'],
+            websiteKlienId: (int) $validated['website_klien_id'],
+            tanggalJadwal: $validated['tanggal_jadwal'] ?? null,
+        );
+
+        if (!$result['success']) {
+            Log::warning('Tidak ada judul yang berhasil disimpan dari n8n', [
+                'website_klien_id' => $validated['website_klien_id'],
+            ]);
+
+            return response()->json([
+                'message' => 'Tidak ada judul yang berhasil disimpan.',
+                'count' => 0,
+                'ids' => [],
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Judul artikel berhasil disimpan.',
+            'count' => $result['count'],
+            'artikel_ids' => $result['ids'],
+        ], 200);
+    }
+
+    public function receiveKonten(Request $request)
     {
         $data = $request->merge([
             'artikel_id' => $request->input('artikel_id'),
-            'konten' => $request->input('konten')
-                ?? $request->input('artikel_konten'),
-            'judul' => $request->input('judul')
-                ?? $request->input('judul_artikel'),
-            'slug' => $request->input('slug')
-                ?? $request->input('slug_artikel'),
-            'seo_title' => $request->input('seo_title')
-                ?? $request->input('artikel_seo_title'),
-            'meta_deskripsi' => $request->input('meta_deskripsi')
-                ?? $request->input('meta_desripsi'),
+            'konten' => $request->input('konten'),
+            'judul' => $request->input('judul'),
+            'slug' => $request->input('slug'),
+            'meta_deskripsi' => $request->input('meta_deskripsi'),
             'kata_kunci' => $request->input('kata_kunci'),
-            'tags' => $request->input('tags') ?? $request->input('tag_artikel'),
-            'kategori' => $request->input('kategori') ?? $request->input('kategori_artikel'),
+            'tags' => $request->input('tags'),
+            'kategori' => $request->input('kategori'),
         ])->all();
 
-        // Validasi setelah normalisasi
         $validated = validator($data, [
             'artikel_id' => 'required|integer|exists:artikel,id',
             'konten' => 'required|string',
             'judul' => 'nullable|string|max:255',
-            'seo_title' => 'nullable|string|max:255',
             'slug' => 'nullable|string|max:255',
             'meta_deskripsi' => 'nullable|string',
             'kata_kunci' => 'nullable|string',
@@ -58,44 +103,44 @@ class N8nWebhookController extends Controller
             'status' => 'diproses',
             'konten' => $validated['konten'],
             'judul' => $validated['judul'] ?? $artikel->judul,
-            'slug' => $validated['slug'] ?? $artikel->slug,
-            'seo_title' => $validated['seo_title'] ?? $artikel->seo_title,
-            'meta_deskripsi' => $validated['meta_deskripsi'] ?? $artikel->meta_deskripsi,
-            'kata_kunci' => $validated['kata_kunci'] ?? $artikel->kata_kunci,
-            'tags' => $validated['tags'] ?? $artikel->tags,
-            'kategori' => $validated['kategori'] ?? $artikel->kategori,
-            'keterangan_proses' => 'Menerima konten',
-            'persentase_proses' => 35,
+            'slug' => $validated['slug'],
+            'meta_deskripsi' => $validated['meta_deskripsi'],
+            'kata_kunci' => $validated['kata_kunci'],
+            'tags' => $validated['tags'],
+            'kategori' => $validated['kategori'],
         ]);
 
-        // 2. Kirim ke WordPress
         $wpResult = $this->sendToWordPress($artikel);
 
         if ($wpResult['success']) {
-            // 3. Simpan wp_id & wp_url. 
-            // CATATAN: Status tetap dibiarkan 'diproses' agar progress tidak hilang di frontend, nanti diupdate di akhir fungsi result yoast!
-            $artikel->update([
+            $statusAkhir = ($artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now()) ? 'terpublish' : 'terjadwal';
+            $updateData = [
+                'status' => $statusAkhir,
                 'wp_id' => $wpResult['wp_id'],
                 'wp_url' => $wpResult['wp_url'],
-            ]);
+            ];
+            if ($statusAkhir === 'terpublish') {
+                $updateData['tanggal_terbit'] = now();
+            }
 
-            // 4. Update data Yoast SEO ke WordPress
-            $this->updateYoastMeta($artikel, $wpResult['wp_id']);
+            $artikel->update($updateData);
 
-            // 5. Trigger n8n untuk cek skor SEO Yoast
-            $this->triggerSeoCheck($artikel, $wpResult['wp_id']);
+            broadcast(new \App\Events\JudulArtikelTersimpan($artikel->website_klien_id));
+            broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, $statusAkhir));
 
             return response()->json([
                 'message' => 'Konten berhasil diterima dan dikirim ke WordPress.',
                 'artikel_id' => $artikel->id,
                 'wp_id' => $wpResult['wp_id'],
                 'wp_url' => $wpResult['wp_url'],
-                // 'status' => $newStatus,
             ], 200);
         }
 
         // Gagal kirim ke WordPress → tandai gagal
         $artikel->update(['status' => 'gagal']);
+
+        broadcast(new \App\Events\JudulArtikelTersimpan($artikel->website_klien_id));
+        broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, 'gagal'));
 
         return response()->json([
             'message' => 'Konten diterima, tetapi gagal dikirim ke WordPress.',
@@ -121,17 +166,16 @@ class N8nWebhookController extends Controller
             'website' => $website->nama_website
         ]);
 
-        $artikel->update([
-            'keterangan_proses' => 'Mengirim artikel ke WordPress tujuan',
-            'persentase_proses' => 50,
-        ]);
 
-        // Gambar sudah diupload ke WP sebelumnya (di ArtikelController::store/retry).
-        // Cukup ambil wp_media_id dari DB untuk dijadikan featured image.
+        // Jika gambar belum diupload ke WP sebelumnya, upload otomatis sekarang
+        $this->ensureImagesUploadedToWordPress($artikel);
+
         $featuredMediaId = null;
-        $gambarFeatured = $artikel->gambarFeatured;
-        if ($gambarFeatured && $gambarFeatured->wp_media_id) {
-            $featuredMediaId = $gambarFeatured->wp_media_id;
+        $artikel->load('gambars');
+        // Ambil gambar pertama dari tabel artikel_gambar
+        $gambar = $artikel->gambars->first();
+        if ($gambar && $gambar->wp_media_id) {
+            $featuredMediaId = $gambar->wp_media_id;
             Log::info("Menggunakan featured media ID dari DB: {$featuredMediaId}", [
                 'artikel_id' => $artikel->id,
             ]);
@@ -140,11 +184,11 @@ class N8nWebhookController extends Controller
         $wpStatus = ($artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now()) ? 'publish' : 'draft';
 
         $body = [
-            'title'    => $artikel->judul,
-            'content'  => $artikel->konten,
+            'title' => $artikel->judul,
+            'content' => $artikel->konten,
             'category' => (string) ($artikel->kategori ?? ''),
-            'tags'     => (string) ($artikel->tags ?? ''),
-            'status'   => $wpStatus,
+            'tags' => (string) ($artikel->tags ?? ''),
+            'status' => $wpStatus,
         ];
 
         if ($featuredMediaId) {
@@ -165,32 +209,32 @@ class N8nWebhookController extends Controller
                 $data = $response->json();
                 return [
                     'success' => true,
-                    'wp_id'   => $data['id'] ?? null,
-                    'wp_url'  => $data['link'] ?? null,
+                    'wp_id' => $data['id'] ?? null,
+                    'wp_url' => $data['link'] ?? null,
                 ];
             }
 
             Log::error('WordPress API error', [
                 'artikel_id' => $artikel->id,
-                'status'     => $response->status(),
-                'body'       => $response->body(),
+                'status' => $response->status(),
+                'body' => $response->body(),
             ]);
 
             return [
                 'success' => false,
-                'error'   => "WordPress API error [{$response->status()}]: " . $response->body(),
+                'error' => "WordPress API error [{$response->status()}]: " . $response->body(),
             ];
         } catch (\Exception $e) {
             Log::error('Exception sending to WordPress', [
                 'artikel_id' => $artikel->id,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    private function updateYoastMeta(Artikel $artikel, $wpId)
+    private function ensureImagesUploadedToWordPress(Artikel $artikel): void
     {
         $website = $artikel->websiteKlien;
         if (!$website) {
@@ -198,130 +242,82 @@ class N8nWebhookController extends Controller
         }
 
         $wpBaseUrl = $website->base_url;
-        $yoastEndpoint = "{$wpBaseUrl}/wp-json/yoast/v1/update";
+        $wpMediaEndpoint = "{$wpBaseUrl}/wp-json/wp/v2/media";
+        $auth = [$website->username, $website->password];
 
-        $body = [
-            'post_id' => $wpId,
-            'focus_keyphrase' => $artikel->kata_kunci,
-            'description' => $artikel->meta_deskripsi,
-        ];
+        $artikel->load('gambars');
 
-        try {
-            $response = Http::withoutVerifying()
-                ->withBasicAuth($website->username, $website->password)
-                ->timeout(30)
-                ->post($yoastEndpoint, $body);
-
-            if (!$response->successful()) {
-                Log::warning('Gagal mengupdate Yoast SEO', [
-                    'artikel_id' => $artikel->id,
-                    'wp_id' => $wpId,
-                    'response' => $response->body()
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::error('Exception update Yoast: ' . $e->getMessage());
-        }
-    }
-    private function triggerSeoCheck(Artikel $artikel, $wpId)
-    {
-        $website = $artikel->websiteKlien;
-        if (!$website || !$wpId) {
+        // Jika artikel tidak memiliki gambar sama sekali, tidak usah proses upload (upload gambar opsional)
+        if ($artikel->gambars->isEmpty()) {
             return;
         }
 
-        Log::info("Mengirim ke n8n untuk mengambil nilai yoast", [
-            'artikel_id' => $artikel->id,
-            'website' => $website->nama_website
-        ]);
-
-        $artikel->update([
-            'keterangan_proses' => 'Menganalisis Skor SEO Artikel',
-            'persentase_proses' => 85,
-        ]);
-
-        try {
-            $response = Http::withoutVerifying()
-                ->withHeaders([
-                    'ngrok-skip-browser-warning' => 'true',
-                    'Accept' => 'application/json',
-                ])
-                ->timeout(15)
-                ->post('https://andy-biform-flukily.ngrok-free.dev/webhook/cek-seo-yoast', [
-                    'artikel_id' => $artikel->id,
-                    'url_website' => $website->url_website,
-                    'username' => $website->username,
-                    'password' => $website->password,
-                    'wp_id' => $wpId,
-                ]);
-
-            if (!$response->successful()) {
-                Log::error('Error dari n8n saat request cek seo yoast: ' . $response->body(), [
-                    'artikel_id' => $artikel->id,
-                    'website' => $website->nama_website
-                ]);
-                $isLangsungPublish = $artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now();
-                $artikel->update([
-                    'status' => $isLangsungPublish ? 'terpublish' : 'terjadwal',
-                    'keterangan_proses' => 'Selesai (Gagal ambil Yoast)',
-                    'persentase_proses' => 100,
-                ]);
+        foreach ($artikel->gambars as $gambar) {
+            if ($gambar->wp_media_id && $gambar->wp_media_url) {
+                continue;
             }
-        } catch (\Exception $e) {
-            Log::error('Gagal mengirim ke n8n untuk cek SEO Yoast: ' . $e->getMessage(), [
-                'artikel_id' => $artikel->id,
-                'website' => $website->nama_website
-            ]);
-            $isLangsungPublish = $artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now();
-            $artikel->update([
-                'status' => $isLangsungPublish ? 'terpublish' : 'terjadwal',
-                'keterangan_proses' => 'Selesai (Gagal ambil Yoast)',
-                'persentase_proses' => 100,
-            ]);
+
+            $pathImage = storage_path('app/public/' . $gambar->path);
+            if (!file_exists($pathImage)) {
+                $pathImage = storage_path('app/' . $gambar->path);
+                if (!file_exists($pathImage)) {
+                    Log::warning("ensureImagesUploadedToWordPress: File gambar tidak ditemukan: {$pathImage}");
+                    continue;
+                }
+            }
+
+            $extension = pathinfo($pathImage, PATHINFO_EXTENSION);
+            $filename = \Illuminate\Support\Str::slug($artikel->judul) . '-img' . $gambar->id . '.' . $extension;
+            $mimeType = mime_content_type($pathImage);
+
+            try {
+                $response = Http::withoutVerifying()
+                    ->withBasicAuth(...$auth)
+                    ->withHeaders([
+                        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                        'Content-Type' => $mimeType,
+                    ])
+                    ->withBody(file_get_contents($pathImage), $mimeType)
+                    ->timeout(30)
+                    ->post($wpMediaEndpoint);
+
+                if ($response->successful()) {
+                    $mediaId = $response->json('id');
+                    $mediaUrl = $response->json('source_url');
+
+                    $altText = $gambar->alt_text ?: $artikel->kata_kunci ?: $artikel->judul;
+                    Http::withoutVerifying()
+                        ->withBasicAuth(...$auth)
+                        ->timeout(15)
+                        ->patch("{$wpBaseUrl}/wp-json/wp/v2/media/{$mediaId}", [
+                            'alt_text' => $altText,
+                            'title' => $altText,
+                        ]);
+
+                    $gambar->update([
+                        'wp_media_id' => $mediaId,
+                        'wp_media_url' => $mediaUrl,
+                    ]);
+
+                    Log::info("Gambar ID {$gambar->id} berhasil diupload otomatis ke WP saat receiveKonten", [
+                        'artikel_id' => $artikel->id,
+                        'wp_media_id' => $mediaId,
+                        'wp_media_url' => $mediaUrl,
+                    ]);
+                } else {
+                    Log::warning("Gagal upload gambar ID {$gambar->id} ke WordPress saat receiveKonten", [
+                        'status' => $response->status(),
+                        'response' => $response->body(),
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error("Exception upload gambar ID {$gambar->id} saat receiveKonten: " . $e->getMessage());
+            }
         }
     }
 
-
-    public function receiveSeoResult(Request $request)
+    public function receiveKontenResult(Request $request)
     {
-        $validated = validator($request->all(), [
-            'artikel_id' => 'required|integer|exists:artikel,id',
-            'skor_seo' => 'nullable|integer|min:0|max:100',
-            'skor_readability' => 'nullable|integer|min:0|max:100',
-            'deskripsi_yoast' => 'nullable|string',
-        ])->validate();
-
-        $artikel = Artikel::with('websiteKlien')->findOrFail($validated['artikel_id']);
-        $websiteKlien = $artikel->websiteKlien ? $artikel->websiteKlien->nama_website : 'Tidak ada';
-
-        Log::info("Menerima nilai dari n8n (Skor Yoast SEO)", [
-            'artikel_id' => $artikel->id,
-            'website' => $websiteKlien,
-            'skor_seo' => $validated['skor_seo'] ?? null
-        ]);
-
-        $isLangsungPublish = $artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now();
-
-        $artikel->update([
-            'status' => $isLangsungPublish ? 'terpublish' : 'terjadwal',
-            'skor_seo' => $validated['skor_seo'] ?? $artikel->skor_seo,
-            'skor_readability' => $validated['skor_readability'] ?? $artikel->skor_readability,
-            'deskripsi_yoast' => $validated['deskripsi_yoast'] ?? $artikel->deskripsi_yoast,
-            'keterangan_proses' => 'Selesai!',
-            'persentase_proses' => 100,
-        ]);
-
-        Log::info('Skor SEO Yoast berhasil diperbarui', [
-            'artikel_id' => $artikel->id,
-            'skor_seo' => $artikel->skor_seo,
-            'skor_readability' => $artikel->skor_readability,
-        ]);
-
-        return response()->json([
-            'message' => 'Skor SEO berhasil diperbarui.',
-            'artikel_id' => $artikel->id,
-            'skor_seo' => $artikel->skor_seo,
-            'skor_readability' => $artikel->skor_readability,
-        ], 200);
+        return $this->receiveKonten($request);
     }
 }

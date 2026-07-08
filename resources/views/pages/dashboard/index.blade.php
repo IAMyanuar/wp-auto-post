@@ -94,28 +94,28 @@
 
         <div class="space-y-5">
 
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2">
-                        <span class="icon-[material-symbols-light--analytics-outline] w-5 h-5 text-purple-600"></span>
-                        <h4 class="font-bold text-gray-800 text-sm">Rata-rata Skor SEO</h4>
+            <!-- <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="icon-[material-symbols-light--analytics-outline] w-5 h-5 text-purple-600"></span>
+                            <h4 class="font-bold text-gray-800 text-sm">Rata-rata Skor SEO</h4>
+                        </div>
                     </div>
-                </div>
-                @php $avg = round($avgSeo ?? 0); @endphp
-                <div class="flex items-end gap-3">
-                    <span
-                        class="text-5xl font-black {{ $avg >= 70 ? 'text-emerald-600' : ($avg >= 50 ? 'text-orange-500' : 'text-red-500') }}">
-                        {{ $avg }}
-                    </span>
-                    <span class="text-gray-400 text-sm mb-2">/100</span>
-                </div>
-                <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div class="h-2 rounded-full transition-all duration-700 {{ $avg >= 70 ? 'bg-emerald-500' : ($avg >= 50 ? 'bg-orange-400' : 'bg-red-400') }}"
-                        style="width: {{ $avg }}%">
+                    @php $avg = round($avgSeo ?? 0); @endphp
+                    <div class="flex items-end gap-3">
+                        <span
+                            class="text-5xl font-black {{ $avg >= 70 ? 'text-emerald-600' : ($avg >= 50 ? 'text-orange-500' : 'text-red-500') }}">
+                            {{ $avg }}
+                        </span>
+                        <span class="text-gray-400 text-sm mb-2">/100</span>
                     </div>
-                </div>
-                <p class="text-xs text-gray-400 mt-2">Berdasarkan artikel dengan data SEO tersedia</p>
-            </div>
+                    <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-2 rounded-full transition-all duration-700 {{ $avg >= 70 ? 'bg-emerald-500' : ($avg >= 50 ? 'bg-orange-400' : 'bg-red-400') }}"
+                            style="width: {{ $avg }}%">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">Berdasarkan artikel dengan data SEO tersedia</p>
+                </div> -->
 
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <div class="flex items-center gap-2 mb-3">

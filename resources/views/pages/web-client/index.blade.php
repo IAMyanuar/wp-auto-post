@@ -210,17 +210,4 @@
     @include('pages.web-client.create')
     @include('pages.web-client.edit')
 
-    <script>
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast-notification');
-            const icon = document.getElementById('toast-icon');
-            document.getElementById('toast-text').textContent = message;
-            icon.className = type === 'success'
-                ? 'w-5 h-5 text-emerald-400 flex-shrink-0 block icon-[material-symbols-light--check-circle-outline]'
-                : 'w-5 h-5 text-red-400 flex-shrink-0 block icon-[material-symbols-light--error-outline]';
-
-            toast.classList.remove('opacity-0', '-translate-y-4', 'pointer-events-none');
-            setTimeout(() => toast.classList.add('opacity-0', '-translate-y-4', 'pointer-events-none'), 3000);
-        }
-    </script>
 @endsection

@@ -75,6 +75,7 @@
                 $statusConfig = [
                     'terpublish' => ['label' => 'Terbit', 'bg' => 'bg-green-50', 'text' => 'text-green-700', 'border' => 'border-green-200', 'dot' => 'bg-green-500'],
                     'gagal' => ['label' => 'Gagal', 'bg' => 'bg-red-50', 'text' => 'text-red-700', 'border' => 'border-red-200', 'dot' => 'bg-red-500'],
+                    'diproses' => ['label' => 'Diproses...', 'bg' => 'bg-orange-50', 'text' => 'text-orange-700', 'border' => 'border-orange-200', 'dot' => 'bg-orange-500 animate-pulse'],
                 ];
             @endphp
 
@@ -86,15 +87,13 @@
                             <th class="py-4 px-5 text-sm font-semibold rounded-tl-xl w-12">No.</th>
                             <th class="py-4 px-5 text-sm font-semibold">Judul Artikel</th>
                             <th class="py-4 px-5 text-sm font-semibold">Website</th>
-                            <th class="py-4 px-5 text-sm font-semibold">Nilai SEO</th>
-                            <th class="py-4 px-5 text-sm font-semibold">Jadwal</th>
+                            <th class="py-4 px-5 text-sm font-semibold">Tanggal Terbit</th>
                             <th class="py-4 px-5 text-sm font-semibold">Status</th>
                             <th class="py-4 px-5 text-sm font-semibold text-right rounded-tr-xl">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($artikels as $key => $artikel)
-                            @php $sc = $statusConfig[$artikel->status] ?? $statusConfig['diproses']; @endphp
                             <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                                 data-artikel-id="{{ $artikel->id }}" data-status="{{ $artikel->status }}">
                                 <td class="py-4 px-5 text-sm text-gray-500 font-medium">{{ $artikels->firstItem() + $key }}.
@@ -104,29 +103,35 @@
                                 </td>
                                 <td class="py-4 px-5 text-sm text-gray-600">{{ $artikel->websiteKlien->nama_website ?? '-' }}
                                 </td>
-                                <td class="py-4 px-5 text-sm">
-                                    @if(!is_null($artikel->skor_seo))
+
+                                @php
+                                    $displayDate = null;
+                                    if ($artikel->status === 'gagal') {
+                                        $displayDate = $artikel->updated_at;
+                                    } else {
+                                        $displayDate = $artikel->tanggal_terbit ?? $artikel->tanggal_jadwal ?? $artikel->updated_at;
+                                    }
+                                @endphp
+                                <td class="py-4 px-5 text-sm text-gray-600">
+                                    @if($displayDate)
                                         <div class="flex items-center gap-1.5">
                                             <span
-                                                class="font-bold {{ $artikel->skor_seo >= 70 ? 'text-green-600' : ($artikel->skor_seo >= 50 ? 'text-orange-500' : 'text-red-500') }}">
-                                                {{ $artikel->skor_seo }}
-                                            </span>
-                                            <span class="text-xs text-gray-400">/ 100</span>
-                                        </div>
-                                    @else
-                                        <span class="text-gray-400">-</span>
-                                    @endif
-                                </td>
-                                <td class="py-4 px-5 text-sm text-gray-600">
-                                    @if($artikel->tanggal_jadwal)
-                                        <div class="flex items-center gap-1.5">
-                                            <span class="icon-[material-symbols-light--schedule] w-4 h-4 text-gray-400"></span>
-                                            {{ $artikel->tanggal_jadwal->format('d M Y, H:i') }}
+                                                class="icon-[material-symbols-light--calendar-today] w-4 h-4 text-gray-400"></span>
+                                            {{ $displayDate->format('d M Y, H:i') }}
                                         </div>
                                     @else
                                         <span class="text-gray-400">—</span>
                                     @endif
                                 </td>
+                                @php
+                                    $sc = $statusConfig[$artikel->status] ?? [
+                                        'label' => ucfirst($artikel->status),
+                                        'bg' => 'bg-gray-50',
+                                        'text' => 'text-gray-700',
+                                        'border' => 'border-gray-200',
+                                        'dot' => 'bg-gray-500',
+                                    ];
+                                @endphp
                                 <td class="py-4 px-5 text-sm">
                                     <span data-badge-id="{{ $artikel->id }}"
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border {{ $sc['bg'] }} {{ $sc['text'] }} {{ $sc['border'] }}">
@@ -135,26 +140,41 @@
                                     </span>
                                 </td>
                                 <td class="py-4 px-5 text-sm text-right">
-                                    <div data-action-id="{{ $artikel->id }}" class="flex items-center justify-end gap-2">
+                                    <div data-action-id="{{ $artikel->id }}" data-wp-url="{{ $artikel->wp_url }}"
+                                        class="flex items-center justify-end gap-2">
                                         @if($artikel->status !== 'diproses')
+                                            @if($artikel->status === 'terpublish' && $artikel->wp_url)
+                                                <a href="{{ $artikel->wp_url }}" target="_blank" title="Lihat Artikel di Website"
+                                                    class="flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 text-green-600 hover:bg-green-600 hover:text-white transition-colors">
+                                                    <span class="icon-[material-symbols-light--visibility-outline] w-5 h-5"></span>
+                                                </a>
+                                            @endif
                                             @if($artikel->status === 'gagal')
                                                 <form action="{{ route('penjadwalan.retry', $artikel->id) }}" method="POST"
                                                     class="inline-block form-retry">
                                                     @csrf
+                                                    @if($artikel->is_perintah)
+                                                        <input type="hidden" name="type" value="perintah">
+                                                    @endif
                                                     <button type="submit" title="Coba Ulang Semua (Retry Full)"
                                                         class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors">
                                                         <span class="icon-[material-symbols-light--refresh] w-5 h-5"></span>
                                                     </button>
                                                 </form>
                                             @endif
-                                            <a href="{{ route('penjadwalan.edit', $artikel->id) }}"
-                                                class="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white transition-colors">
-                                                <span class="icon-[material-symbols-light--edit-square-outline] w-5 h-5"></span>
-                                            </a>
+                                            @if(!$artikel->is_perintah)
+                                                <a href="{{ route('penjadwalan.edit', ['artikel' => $artikel->id, 'from' => 'riwayat']) }}"
+                                                    class="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white transition-colors">
+                                                    <span class="icon-[material-symbols-light--edit-square-outline] w-5 h-5"></span>
+                                                </a>
+                                            @endif
                                             <form action="{{ route('penjadwalan.destroy', $artikel->id) }}" method="POST"
                                                 class="inline-block form-delete">
                                                 @csrf
                                                 @method('DELETE')
+                                                @if($artikel->is_perintah)
+                                                    <input type="hidden" name="type" value="perintah">
+                                                @endif
                                                 <button type="submit"
                                                     class="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-colors">
                                                     <span class="icon-[material-symbols-light--delete-outline] w-5 h-5"></span>
@@ -179,9 +199,8 @@
                 </table>
             </div>
 
-            {{-- Mobile Cards (< lg) --}} <div class="block lg:hidden space-y-3">
+            <div class="block lg:hidden space-y-3">
                 @forelse($artikels as $key => $artikel)
-                    @php $sc = $statusConfig[$artikel->status] ?? $statusConfig['diproses']; @endphp
                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden w-full min-w-0"
                         data-artikel-id="{{ $artikel->id }}" data-status="{{ $artikel->status }}">
                         <div class="p-4 pb-2 flex items-start gap-3">
@@ -201,25 +220,34 @@
                                     <span class="icon-[material-symbols-light--language] w-3.5 h-3.5 text-gray-400"></span>
                                     {{ $artikel->websiteKlien->nama_website ?? '-' }}
                                 </span>
-                                @if($artikel->tanggal_jadwal)
+                                @php
+                                    $displayDate = null;
+                                    if ($artikel->status === 'gagal') {
+                                        $displayDate = $artikel->updated_at;
+                                    } else {
+                                        $displayDate = $artikel->tanggal_terbit ?? $artikel->tanggal_jadwal ?? $artikel->updated_at;
+                                    }
+                                @endphp
+                                @if($displayDate)
                                     <span class="flex items-center gap-1">
-                                        <span class="icon-[material-symbols-light--schedule] w-3.5 h-3.5 text-gray-400"></span>
-                                        {{ $artikel->tanggal_jadwal->format('d M Y, H:i') }}
+                                        <span
+                                            class="icon-[material-symbols-light--calendar-today] w-3.5 h-3.5 text-gray-400"></span>
+                                        {{ $displayDate->format('d M Y, H:i') }}
                                     </span>
                                 @endif
                             </div>
                         </div>
+                        @php
+                            $sc = $statusConfig[$artikel->status] ?? [
+                                'label' => ucfirst($artikel->status),
+                                'bg' => 'bg-gray-50',
+                                'text' => 'text-gray-700',
+                                'border' => 'border-gray-200',
+                                'dot' => 'bg-gray-500',
+                            ];
+                        @endphp
                         <div class="px-4 py-3 bg-gray-50 border-t border-gray-100">
-                            <div class="flex items-center justify-between mb-3">
-                                <span class="text-xs text-gray-500 font-medium">
-                                    Yoast:
-                                    @if(!is_null($artikel->skor_seo))
-                                        <span
-                                            class="{{ $artikel->skor_seo >= 70 ? 'text-green-600' : ($artikel->skor_seo >= 50 ? 'text-orange-500' : 'text-red-500') }} font-bold">{{ $artikel->skor_seo }}</span>/100
-                                    @else
-                                        <span class="text-gray-400">-</span>
-                                    @endif
-                                </span>
+                            <div class="flex items-center justify-end mb-3">
                                 <span data-badge-id="{{ $artikel->id }}"
                                     class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-semibold rounded-full border flex-shrink-0 {{ $sc['bg'] }} {{ $sc['text'] }} {{ $sc['border'] }}">
                                     <span class="w-1.5 h-1.5 rounded-full {{ $sc['dot'] }}"></span>
@@ -227,11 +255,21 @@
                                 </span>
                             </div>
 
-                            <div data-action-id="{{ $artikel->id }}" class="flex items-center gap-2 justify-end pt-2 border-t border-gray-100/50">
+                            <div data-action-id="{{ $artikel->id }}" data-wp-url="{{ $artikel->wp_url }}"
+                                class="flex items-center gap-2 justify-end pt-2 border-t border-gray-100/50">
                                 @if($artikel->status !== 'diproses')
-                                    @if($artikel->status === 'gagal')
+                                    @if($artikel->status === 'terpublish' && $artikel->wp_url)
+                                        <a href="{{ $artikel->wp_url }}" target="_blank" title="Lihat Artikel di Website"
+                                            class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-green-50 text-green-600 hover:bg-green-600 hover:text-white transition-all text-xs font-bold">
+                                            <span class="icon-[material-symbols-light--visibility-outline] w-4 h-4"></span>
+                                            Lihat
+                                        </a>
+                                    @endif @if($artikel->status === 'gagal')
                                         <form action="{{ route('penjadwalan.retry', $artikel->id) }}" method="POST" class="form-retry">
                                             @csrf
+                                            @if($artikel->is_perintah)
+                                                <input type="hidden" name="type" value="perintah">
+                                            @endif
                                             <button type="submit" title="Coba Ulang Full"
                                                 class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all text-xs font-bold">
                                                 <span class="icon-[material-symbols-light--refresh] w-4 h-4"></span>
@@ -239,24 +277,21 @@
                                             </button>
                                         </form>
                                     @endif
-                                    @if(is_null($artikel->skor_seo) && !is_null($artikel->wp_id))
-                                        <form action="{{ route('penjadwalan.retryYoast', $artikel->id) }}" method="POST" class="form-retry-yoast">
-                                            @csrf
-                                            <button type="submit" title="Cek Yoast"
-                                                class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all text-xs font-bold">
-                                                <span class="icon-[material-symbols-light--search-check] w-4 h-4"></span>
-                                                SEO
-                                            </button>
-                                        </form>
+
+                                    @if(!$artikel->is_perintah)
+                                        <a href="{{ route('penjadwalan.edit', ['artikel' => $artikel->id, 'from' => 'riwayat']) }}"
+                                            class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white transition-all text-xs font-bold">
+                                            <span class="icon-[material-symbols-light--edit-square-outline] w-4 h-4"></span>
+                                            Edit
+                                        </a>
                                     @endif
-                                    <a href="{{ route('penjadwalan.edit', $artikel->id) }}"
-                                        class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white transition-all text-xs font-bold">
-                                        <span class="icon-[material-symbols-light--edit-square-outline] w-4 h-4"></span>
-                                        Edit
-                                    </a>
-                                    <form action="{{ route('penjadwalan.destroy', $artikel->id) }}" method="POST" class="form-delete">
+                                    <form action="{{ route('penjadwalan.destroy', $artikel->id) }}" method="POST"
+                                        class="form-delete">
                                         @csrf
                                         @method('DELETE')
+                                        @if($artikel->is_perintah)
+                                            <input type="hidden" name="type" value="perintah">
+                                        @endif
                                         <button type="submit"
                                             class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all text-xs font-bold">
                                             <span class="icon-[material-symbols-light--delete-outline] w-4 h-4"></span>
@@ -279,23 +314,23 @@
                         Belum ada jadwal artikel.
                     </div>
                 @endforelse
-        </div>
-
-        {{-- Pagination --}}
-        @if($artikels->hasPages() || $artikels->total() > 0)
-            <div class="mt-5 flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-gray-100">
-                <p class="text-xs text-gray-500 order-2 sm:order-1">
-                    Menampilkan <span class="font-semibold text-gray-700">{{ $artikels->firstItem() ?? 0 }}</span>
-                    &ndash;
-                    <span class="font-semibold text-gray-700">{{ $artikels->lastItem() ?? 0 }}</span>
-                    dari <span class="font-semibold text-gray-700">{{ $artikels->total() }}</span> entri
-                </p>
-                <div class="order-1 sm:order-2">
-                    {{ $artikels->links('pagination::tailwind') }}
-                </div>
             </div>
-        @endif
-    </div>
+
+            {{-- Pagination --}}
+            @if($artikels->hasPages() || $artikels->total() > 0)
+                <div class="mt-5 flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-gray-100">
+                    <p class="text-xs text-gray-500 order-2 sm:order-1">
+                        Menampilkan <span class="font-semibold text-gray-700">{{ $artikels->firstItem() ?? 0 }}</span>
+                        &ndash;
+                        <span class="font-semibold text-gray-700">{{ $artikels->lastItem() ?? 0 }}</span>
+                        dari <span class="font-semibold text-gray-700">{{ $artikels->total() }}</span> entri
+                    </p>
+                    <div class="order-1 sm:order-2">
+                        {{ $artikels->links('pagination::tailwind') }}
+                    </div>
+                </div>
+            @endif
+        </div>
     </div>
 @endsection
 
@@ -350,99 +385,45 @@
                     el.dataset.status = status;
                 });
 
-                // Jika status bukan diproses lagi, tampilkan tombol edit & delete
                 if (status !== 'diproses') {
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
-                    const editUrl = `{{ url('/penjadwalan') }}/${artikelId}/edit`;
+                    const editUrl = `{{ url('/penjadwalan') }}/${artikelId}/edit?from=riwayat`;
                     const deleteUrl = `{{ url('/penjadwalan') }}/${artikelId}`;
 
+                    document.querySelectorAll(`[data-action-id="${artikelId}"]`).forEach(container => {
+                        const isDesktop = container.closest('table') !== null;
+                        const wpUrl = container.dataset.wpUrl || '';
                         let buttonsHtml = '';
                         if (isDesktop) {
-                            buttonsHtml = `<a href="${editUrl}" class="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white transition-colors"><span class="icon-[material-symbols-light--edit-square-outline] w-5 h-5"></span></a><form action="${deleteUrl}" method="POST" class="inline-block form-delete"><input type="hidden" name="_token" value="${csrfToken}"><input type="hidden" name="_method" value="DELETE"><button type="submit" class="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-colors"><span class="icon-[material-symbols-light--delete-outline] w-5 h-5"></span></button></form>`;
+                            if (status === 'terpublish' && wpUrl) {
+                                buttonsHtml += `<a href="${wpUrl}" target="_blank" title="Lihat Artikel di Website" class="flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 text-green-600 hover:bg-green-600 hover:text-white transition-colors"><span class="icon-[material-symbols-light--visibility-outline] w-5 h-5"></span></a>`;
+                            }
+                            buttonsHtml += `<a href="${editUrl}" class="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white transition-colors"><span class="icon-[material-symbols-light--edit-square-outline] w-5 h-5"></span></a><form action="${deleteUrl}" method="POST" class="inline-block form-delete"><input type="hidden" name="_token" value="${csrfToken}"><input type="hidden" name="_method" value="DELETE"><button type="submit" class="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-colors"><span class="icon-[material-symbols-light--delete-outline] w-5 h-5"></span></button></form>`;
                         } else {
-                            buttonsHtml = `<a href="${editUrl}" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-orange-50 text-orange-600 transition-all text-xs font-bold"><span class="icon-[material-symbols-light--edit-square-outline] w-4 h-4"></span> Edit</a><form action="${deleteUrl}" method="POST" class="form-delete"><input type="hidden" name="_token" value="${csrfToken}"><input type="hidden" name="_method" value="DELETE"><button type="submit" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-red-50 text-red-600 transition-all text-xs font-bold"><span class="icon-[material-symbols-light--delete-outline] w-4 h-4"></span> Hapus</button></form>`;
+                            if (status === 'terpublish' && wpUrl) {
+                                buttonsHtml += `<a href="${wpUrl}" target="_blank" title="Lihat Artikel di Website" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-green-50 text-green-600 hover:bg-green-600 hover:text-white transition-all text-xs font-bold"><span class="icon-[material-symbols-light--visibility-outline] w-4 h-4"></span> Lihat</a>`;
+                            }
+                            buttonsHtml += `<a href="${editUrl}" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-orange-50 text-orange-600 transition-all text-xs font-bold"><span class="icon-[material-symbols-light--edit-square-outline] w-4 h-4"></span> Edit</a><form action="${deleteUrl}" method="POST" class="form-delete"><input type="hidden" name="_token" value="${csrfToken}"><input type="hidden" name="_method" value="DELETE"><button type="submit" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-red-50 text-red-600 transition-all text-xs font-bold"><span class="icon-[material-symbols-light--delete-outline] w-4 h-4"></span> Hapus</button></form>`;
                         }
                         container.innerHTML = buttonsHtml;
                     });
                 }
             }
-
-            function doPoll() {
-                // Ambil ID yang masih diproses dari DOM
-                const stillProcessing = Array.from(document.querySelectorAll('[data-artikel-id][data-status="diproses"]'))
-                    .map(el => el.dataset.artikelId);
-
-                // Sudah tidak ada yang diproses → hentikan polling
-                if (stillProcessing.length === 0) {
-                    clearInterval(pollInterval);
-                    return;
-                }
-
-                // Request hanya bawa ID yang masih perlu dicek
-                fetch(`{{ route('penjadwalan.poll-status') }}?ids[]=${stillProcessing.join('&ids[]=')}`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                })
-                    .then(res => res.json())
-                    .then(({ statuses }) => {
-                        statuses.forEach(({ id, status }) => {
-                            const el = document.querySelector(`[data-artikel-id="${id}"]`);
-                            if (el && el.dataset.status !== status) {
-                                updateBadge(id, status);
-                            }
-                        });
-
-                        // Custom Progress UI (Pojok Kanan Atas)
-                        const processing = statuses.find(s => s.status === 'diproses');
-                        const finished = statuses.find(s => s.status !== 'diproses');
-                        const target = processing || finished;
-
-                        const toastEl = document.getElementById('progress-toast-container');
-                        let pctEl = document.getElementById('progress-pct');
-                        let textEl = document.getElementById('progress-text');
-                        let barEl = document.getElementById('progress-bar');
-                        let iconEl = document.getElementById('progress-icon');
-
-                        if (!target) {
-                            toastEl.classList.add('translate-x-[120%]', 'opacity-0');
-                        } else {
-                            toastEl.classList.remove('translate-x-[120%]', 'opacity-0');
-
-                            const pct = target.persentase_proses || 0;
-                            const isError = target.status === 'gagal';
-                            const isSuccess = target.status === 'terjadwal' || target.status === 'terpublish';
-
-                            pctEl.textContent = pct + '%';
-                            textEl.textContent = target.keterangan_proses || 'Memproses artikel...';
-                            barEl.style.width = Math.max(pct, 5) + '%';
-
-                            if (isError) {
-                                pctEl.className = 'text-[13px] font-bold text-red-500 ml-2';
-                                barEl.className = 'bg-red-500 h-1.5 rounded-full transition-all duration-500 ease-out';
-                                iconEl.className = 'w-9 h-9 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0';
-                                iconEl.innerHTML = '<span class="icon-[material-symbols-light--error] w-5 h-5 text-red-600"></span>';
-                            } else if (isSuccess) {
-                                pctEl.className = 'text-[13px] font-bold text-green-500 ml-2';
-                                barEl.className = 'bg-green-500 h-1.5 rounded-full transition-all duration-500 ease-out';
-                                iconEl.className = 'w-9 h-9 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0';
-                                iconEl.innerHTML = '<span class="icon-[material-symbols-light--check-circle] w-5 h-5 text-green-600"></span>';
-                            } else {
-                                pctEl.className = 'text-[13px] font-bold text-blue-600 ml-2';
-                                barEl.className = 'bg-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out';
-                                iconEl.className = 'w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0';
-                                iconEl.innerHTML = '<span class="icon-[material-symbols-light--progress-activity] w-5 h-5 text-blue-600 animate-spin"></span>';
-                            }
-
-                            if (!processing) {
-                                setTimeout(() => {
-                                    toastEl.classList.add('translate-x-[120%]', 'opacity-0');
-                                }, 3500);
-                            }
-                        }
-                    })
-                    .catch(() => { });
-            }
-
-            pollInterval = setInterval(doPoll, POLL_DELAY);
         })();
+    </script>
+@endpush
+@push('scripts')
+    <script type="module">
+        if (window.Echo) {
+            window.Echo.channel('penjadwalan')
+                .listen('.JudulArtikelTersimpan', (e) => {
+                    showToast('Data judul artikel diperbarui!', 'success');
+                    setTimeout(() => window.location.reload(), 1200);
+                })
+                .listen('.KontenArtikelTersimpan', (e) => {
+                    showToast('Proses konten artikel selesai!', 'success');
+                    setTimeout(() => window.location.reload(), 1200);
+                });
+        }
     </script>
 @endpush

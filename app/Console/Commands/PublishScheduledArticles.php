@@ -61,11 +61,15 @@ class PublishScheduledArticles extends Command
                     ]);
 
                 if ($response->successful()) {
-                    // Update database lokal
+                    $data = $response->json();
                     $artikel->update([
                         'status' => 'terpublish',
                         'tanggal_terbit' => now(),
+                        'wp_url' => !empty($data['link']) ? $data['link'] : $artikel->wp_url,
                     ]);
+
+                    broadcast(new \App\Events\JudulArtikelTersimpan($artikel->website_klien_id));
+                    broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, 'terpublish'));
 
                     $this->info("Artikel ID {$artikel->id} berhasil di-publish.");
                 } else {

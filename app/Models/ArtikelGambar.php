@@ -20,6 +20,7 @@ class ArtikelGambar extends Model
 
     protected $casts = [
         'is_featured' => 'boolean',
+        'wp_media_id' => 'integer',
     ];
 
     public function artikel()
