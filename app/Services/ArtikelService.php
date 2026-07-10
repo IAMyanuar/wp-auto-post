@@ -168,10 +168,10 @@ class ArtikelService
         // Beritahu browser secara realtime bahwa artikel mulai diproses
         broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, 'diproses'));
 
-        // Cari internal link
         $internalLink = \App\Models\Artikel::where('website_klien_id', $artikel->website_klien_id)
             ->whereNotNull('wp_url')
             ->where('wp_url', '!=', '')
+            ->where('wp_url', 'not like', '%?p=%')
             ->where('id', '!=', $artikel->id)
             ->latest('id')
             ->value('wp_url');
