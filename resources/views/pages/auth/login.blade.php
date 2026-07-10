@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="icon" type="image/png" href="{{ asset('assets/properti/icon.jpg') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ asset('assets/properti/icon.jpg') }}">
     <title>Login - WP Auto Post</title>
 </head>
 

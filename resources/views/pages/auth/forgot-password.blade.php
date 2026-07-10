@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="icon" type="image/png" href="{{ asset('assets/properti/Logo.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ asset('assets/properti/Logo.png') }}">
     <title>Lupa Password - Material WP Auto Post</title>
 </head>
 <body class="font-outfit bg-gradient-to-br from-[#0d0d0d] via-[#1e1b4b] to-[#0d0d0d] text-text min-h-screen flex items-center justify-center p-4 overflow-hidden">
