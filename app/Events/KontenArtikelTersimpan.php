@@ -15,8 +15,10 @@ class KontenArtikelTersimpan implements ShouldBroadcastNow
     public function __construct(
         public int $artikelId,
         public ?int $websiteKlienId = null,
-        public ?string $status = null
+        public ?string $status = null,
+        public ?string $message = null
     ) {}
+
 
     public function broadcastOn(): array
     {

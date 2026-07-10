@@ -61,7 +61,7 @@ class ArtikelController extends Controller
             'topik_konten' => 'required|string|max:2000',
             'jumlah_konten' => 'required|integer|min:1|max:100',
             'website_klien_id' => 'required|exists:website_klien,id',
-            'call_action' => 'nullable|string',
+            'use_cta' => 'nullable',
         ], [
             'topik_konten.required' => 'Prompt / topik konten wajib diisi.',
             'jumlah_konten.required' => 'Jumlah konten wajib dipilih.',
@@ -74,6 +74,7 @@ class ArtikelController extends Controller
             websiteKlienId: (int) $validated['website_klien_id'],
             topik: $validated['topik_konten'],
             jumlahArtikel: (int) $validated['jumlah_konten'],
+            useCta: (bool) ($validated['use_cta'] ?? false),
         );
 
         if (!$result['success']) {
@@ -178,8 +179,28 @@ class ArtikelController extends Controller
 
     public function edit(Artikel $artikel)
     {
+        $artikel->load('cekDuplikasiTerakhir');
         $websites = WebsiteKlien::all();
         return view('pages.penjadwalan.edit', compact('artikel', 'websites'));
+    }
+
+    public function cekPlagiasi(Artikel $artikel)
+    {
+        $uniqtextService = app(\App\Services\UniqtextService::class);
+        $result = $uniqtextService->checkArticle($artikel);
+
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? 'Gagal melakukan pengecekan plagiasi.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pengecekan plagiasi berhasil dilakukan.',
+            'data' => $result,
+        ]);
     }
 
     public function update(Request $request, Artikel $artikel)
@@ -249,7 +270,7 @@ class ArtikelController extends Controller
             ]);
         }
 
-        if (empty($artikel->wp_id) || $artikel->status === 'terjadwal') {
+        if (empty($artikel->wp_id)) {
             return redirect()->route($redirectRoute)
                 ->with('success', 'Detail artikel berhasil diperbarui!');
         }
@@ -300,8 +321,20 @@ class ArtikelController extends Controller
 
                 if ($response->successful()) {
                     $data = $response->json();
+                    $updateFields = [];
                     if (!empty($data['link'])) {
-                        $artikel->update(['wp_url' => $data['link']]);
+                        $updateFields['wp_url'] = $data['link'];
+                    }
+                    if ($request->wp_status === 'publish') {
+                        $updateFields['status'] = 'terpublish';
+                        if (!$artikel->tanggal_terbit) {
+                            $updateFields['tanggal_terbit'] = now();
+                        }
+                    } elseif ($request->wp_status === 'draft') {
+                        $updateFields['status'] = 'terjadwal';
+                    }
+                    if (!empty($updateFields)) {
+                        $artikel->update($updateFields);
                     }
                     \Illuminate\Support\Facades\Log::info("Artikel ID {$artikel->id} berhasil diupdate ke WordPress", [
                         'wp_id' => $artikel->wp_id,

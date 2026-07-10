@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProsesDanKirimKeWordPressJob;
 use App\Models\Artikel;
 use App\Services\ArtikelService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class N8nWebhookController extends Controller
@@ -63,6 +63,14 @@ class N8nWebhookController extends Controller
         ], 200);
     }
 
+    /**
+     * Menerima konten dari N8N, menyimpannya ke DB,
+     * lalu mendispatch job background untuk proses berat:
+     * cek plagiasi, upload gambar ke WP, kirim artikel ke WP, dan broadcast ke browser.
+     *
+     * Dengan cara ini webhook merespons instan (< 1 detik) ke N8N
+     * dan broadcast() dijamin terpanggil dari dalam Job tanpa risiko timeout.
+     */
     public function receiveKonten(Request $request)
     {
         $data = $request->merge([
@@ -96,9 +104,10 @@ class N8nWebhookController extends Controller
 
         Log::info("Menerima data dari n8n (Konten Artikel)", [
             'artikel_id' => $artikel->id,
-            'website' => $websiteKlien
+            'website' => $websiteKlien,
         ]);
 
+        // ── Simpan konten dan metadata ke DB ─────────────────────────────────────
         $artikel->update([
             'status' => 'diproses',
             'konten' => $validated['konten'],
@@ -110,212 +119,20 @@ class N8nWebhookController extends Controller
             'kategori' => $validated['kategori'],
         ]);
 
-        $wpResult = $this->sendToWordPress($artikel);
+        // ── Dispatch Job background: cek plagiasi + upload gambar + kirim WP + broadcast ──
+        ProsesDanKirimKeWordPressJob::dispatch($artikel->id);
 
-        if ($wpResult['success']) {
-            $statusAkhir = ($artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now()) ? 'terpublish' : 'terjadwal';
-            $updateData = [
-                'status' => $statusAkhir,
-                'wp_id' => $wpResult['wp_id'],
-                'wp_url' => $wpResult['wp_url'],
-            ];
-            if ($statusAkhir === 'terpublish') {
-                $updateData['tanggal_terbit'] = now();
-            }
-
-            $artikel->update($updateData);
-
-            broadcast(new \App\Events\JudulArtikelTersimpan($artikel->website_klien_id));
-            broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, $statusAkhir));
-
-            return response()->json([
-                'message' => 'Konten berhasil diterima dan dikirim ke WordPress.',
-                'artikel_id' => $artikel->id,
-                'wp_id' => $wpResult['wp_id'],
-                'wp_url' => $wpResult['wp_url'],
-            ], 200);
-        }
-
-        // Gagal kirim ke WordPress → tandai gagal
-        $artikel->update(['status' => 'gagal']);
-
-        broadcast(new \App\Events\JudulArtikelTersimpan($artikel->website_klien_id));
-        broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, 'gagal'));
+        Log::info("ProsesDanKirimKeWordPressJob di-dispatch untuk Artikel ID {$artikel->id}.");
 
         return response()->json([
-            'message' => 'Konten diterima, tetapi gagal dikirim ke WordPress.',
+            'message' => 'Konten diterima dan sedang diproses di background.',
             'artikel_id' => $artikel->id,
-            'error' => $wpResult['error'],
-            'status' => 'gagal',
-        ], 422);
+        ], 200);
     }
 
-    private function sendToWordPress(Artikel $artikel): array
-    {
-        $website = $artikel->websiteKlien;
-
-        if (!$website) {
-            return ['success' => false, 'error' => 'Website klien tidak ditemukan.'];
-        }
-
-        $wpBaseUrl = $website->base_url;
-        $wpApiUrl = "{$wpBaseUrl}/wp-json/wp/v2/posts";
-
-        Log::info("Mengirim ke WordPress", [
-            'artikel_id' => $artikel->id,
-            'website' => $website->nama_website
-        ]);
-
-
-        // Jika gambar belum diupload ke WP sebelumnya, upload otomatis sekarang
-        $this->ensureImagesUploadedToWordPress($artikel);
-
-        $featuredMediaId = null;
-        $artikel->load('gambars');
-        // Ambil gambar pertama dari tabel artikel_gambar
-        $gambar = $artikel->gambars->first();
-        if ($gambar && $gambar->wp_media_id) {
-            $featuredMediaId = $gambar->wp_media_id;
-            Log::info("Menggunakan featured media ID dari DB: {$featuredMediaId}", [
-                'artikel_id' => $artikel->id,
-            ]);
-        }
-
-        $wpStatus = ($artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now()) ? 'publish' : 'draft';
-
-        $body = [
-            'title' => $artikel->judul,
-            'content' => $artikel->konten,
-            'category' => (string) ($artikel->kategori ?? ''),
-            'tags' => (string) ($artikel->tags ?? ''),
-            'status' => $wpStatus,
-        ];
-
-        if ($featuredMediaId) {
-            $body['featured_media'] = $featuredMediaId;
-        }
-
-        if ($artikel->seo_title) {
-            $body['slug'] = \Illuminate\Support\Str::slug($artikel->seo_title);
-        }
-
-        try {
-            $response = Http::withoutVerifying()
-                ->withBasicAuth($website->username, $website->password)
-                ->timeout(30)
-                ->post($wpApiUrl, $body);
-
-            if ($response->successful()) {
-                $data = $response->json();
-                return [
-                    'success' => true,
-                    'wp_id' => $data['id'] ?? null,
-                    'wp_url' => $data['link'] ?? null,
-                ];
-            }
-
-            Log::error('WordPress API error', [
-                'artikel_id' => $artikel->id,
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-
-            return [
-                'success' => false,
-                'error' => "WordPress API error [{$response->status()}]: " . $response->body(),
-            ];
-        } catch (\Exception $e) {
-            Log::error('Exception sending to WordPress', [
-                'artikel_id' => $artikel->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-
-    private function ensureImagesUploadedToWordPress(Artikel $artikel): void
-    {
-        $website = $artikel->websiteKlien;
-        if (!$website) {
-            return;
-        }
-
-        $wpBaseUrl = $website->base_url;
-        $wpMediaEndpoint = "{$wpBaseUrl}/wp-json/wp/v2/media";
-        $auth = [$website->username, $website->password];
-
-        $artikel->load('gambars');
-
-        // Jika artikel tidak memiliki gambar sama sekali, tidak usah proses upload (upload gambar opsional)
-        if ($artikel->gambars->isEmpty()) {
-            return;
-        }
-
-        foreach ($artikel->gambars as $gambar) {
-            if ($gambar->wp_media_id && $gambar->wp_media_url) {
-                continue;
-            }
-
-            $pathImage = storage_path('app/public/' . $gambar->path);
-            if (!file_exists($pathImage)) {
-                $pathImage = storage_path('app/' . $gambar->path);
-                if (!file_exists($pathImage)) {
-                    Log::warning("ensureImagesUploadedToWordPress: File gambar tidak ditemukan: {$pathImage}");
-                    continue;
-                }
-            }
-
-            $extension = pathinfo($pathImage, PATHINFO_EXTENSION);
-            $filename = \Illuminate\Support\Str::slug($artikel->judul) . '-img' . $gambar->id . '.' . $extension;
-            $mimeType = mime_content_type($pathImage);
-
-            try {
-                $response = Http::withoutVerifying()
-                    ->withBasicAuth(...$auth)
-                    ->withHeaders([
-                        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-                        'Content-Type' => $mimeType,
-                    ])
-                    ->withBody(file_get_contents($pathImage), $mimeType)
-                    ->timeout(30)
-                    ->post($wpMediaEndpoint);
-
-                if ($response->successful()) {
-                    $mediaId = $response->json('id');
-                    $mediaUrl = $response->json('source_url');
-
-                    $altText = $gambar->alt_text ?: $artikel->kata_kunci ?: $artikel->judul;
-                    Http::withoutVerifying()
-                        ->withBasicAuth(...$auth)
-                        ->timeout(15)
-                        ->patch("{$wpBaseUrl}/wp-json/wp/v2/media/{$mediaId}", [
-                            'alt_text' => $altText,
-                            'title' => $altText,
-                        ]);
-
-                    $gambar->update([
-                        'wp_media_id' => $mediaId,
-                        'wp_media_url' => $mediaUrl,
-                    ]);
-
-                    Log::info("Gambar ID {$gambar->id} berhasil diupload otomatis ke WP saat receiveKonten", [
-                        'artikel_id' => $artikel->id,
-                        'wp_media_id' => $mediaId,
-                        'wp_media_url' => $mediaUrl,
-                    ]);
-                } else {
-                    Log::warning("Gagal upload gambar ID {$gambar->id} ke WordPress saat receiveKonten", [
-                        'status' => $response->status(),
-                        'response' => $response->body(),
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::error("Exception upload gambar ID {$gambar->id} saat receiveKonten: " . $e->getMessage());
-            }
-        }
-    }
-
+    /**
+     * Alias untuk receiveKonten — dipertahankan agar kompatibel dengan route lama.
+     */
     public function receiveKontenResult(Request $request)
     {
         return $this->receiveKonten($request);

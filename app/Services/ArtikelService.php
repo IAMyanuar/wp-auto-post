@@ -12,7 +12,7 @@ class ArtikelService
     const N8N_GENERATE_JUDUL_URL = 'https://andy-biform-flukily.ngrok-free.dev/webhook/auto-post-generate-judul';
     const N8N_GENERATE_KONTEN_URL = 'https://andy-biform-flukily.ngrok-free.dev/webhook/auto-post-generate-konten';
 
-    public function generateJudul(int $userId, int $websiteKlienId, string $topik, int $jumlahArtikel, ?int $existingPerintahId = null): array
+    public function generateJudul(int $userId, int $websiteKlienId, string $topik, int $jumlahArtikel, ?int $existingPerintahId = null, bool $useCta = false): array
     {
         $perintah = null;
         if ($existingPerintahId) {
@@ -25,11 +25,13 @@ class ArtikelService
                 'website_klien_id' => $websiteKlienId,
                 'topik' => $topik,
                 'jumlah_artikel' => $jumlahArtikel,
+                'use_cta' => $useCta,
             ]);
         } else {
             $perintah->update([
                 'status' => 'pending',
                 'n8n_status' => null,
+                'use_cta' => $useCta,
             ]);
         }
 
@@ -110,7 +112,7 @@ class ArtikelService
         }
     }
 
-    public function generateKonten(?int $websiteKlienId = null, ?int $specificArtikelId = null): array
+    public function generateKonten(?int $websiteKlienId = null, ?int $specificArtikelId = null, array $retryDuplikatData = []): array
     {
         // 1. Reset otomatis artikel yang stuck di 'diproses' lebih dari 10 menit menjadi 'gagal' agar tidak memblokir antrean
         \App\Models\Artikel::where('status', 'diproses')
@@ -163,6 +165,9 @@ class ArtikelService
             'status' => 'diproses',
         ]);
 
+        // Beritahu browser secara realtime bahwa artikel mulai diproses
+        broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, 'diproses'));
+
         // Cari internal link
         $internalLink = \App\Models\Artikel::where('website_klien_id', $artikel->website_klien_id)
             ->whereNotNull('wp_url')
@@ -179,7 +184,7 @@ class ArtikelService
             ]);
         }
 
-        $payload = [
+        $payload = array_merge([
             'artikel_id' => $artikel->id,
             'website_klien_id' => $artikel->website_klien_id,
             'perintah_artikel_id' => $artikel->perintah_artikel_id,
@@ -187,9 +192,12 @@ class ArtikelService
             'judul' => $artikel->judul,
             'use_cta' => $artikel->use_cta,
             'internal_link' => $internalLink,
-        ];
+        ], $retryDuplikatData);
 
-        Log::info("Mengirim permintaan generate konten ke n8n untuk artikel ID {$artikel->id}", ['judul' => $artikel->judul]);
+        Log::info("Mengirim permintaan generate konten ke n8n untuk artikel ID {$artikel->id}", [
+            'judul' => $artikel->judul,
+            'is_retry_duplikat' => !empty($retryDuplikatData),
+        ]);
 
         try {
             $response = Http::withoutVerifying()
@@ -233,14 +241,22 @@ class ArtikelService
                     'body' => $response->body(),
                 ]);
 
+                // Ambil detail error dari body n8n agar bisa ditampilkan di alert browser
+                $errorData = json_decode($response->body(), true);
+                $pesanDetail = is_array($errorData) ? ($errorData['message'] ?? $response->body()) : $response->body();
+                $pesanAlert = "N8N Error HTTP {$response->status()}: " . ($pesanDetail ?: 'Webhook n8n tidak merespons');
+
                 // Jika gagal kirim, ubah status jadi gagal agar tidak memblokir antrean berikutnya
                 $artikel->update([
                     'status' => 'gagal',
                 ]);
 
+                // Beritahu browser bahwa artikel gagal diproses beserta pesan error detail
+                broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, 'gagal', $pesanAlert));
+
                 return [
                     'success' => false,
-                    'message' => "Gagal mengirim ke n8n: HTTP {$response->status()}",
+                    'message' => $pesanAlert,
                     'artikel' => $artikel,
                 ];
             }
@@ -249,13 +265,18 @@ class ArtikelService
                 'error' => $e->getMessage(),
             ]);
 
+            $pesanAlert = 'Gagal mengirim ke N8N: ' . $e->getMessage();
+
             $artikel->update([
                 'status' => 'gagal',
             ]);
 
+            // Beritahu browser bahwa artikel gagal diproses (exception)
+            broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, 'gagal', $pesanAlert));
+
             return [
                 'success' => false,
-                'message' => 'Exception: ' . $e->getMessage(),
+                'message' => $pesanAlert,
                 'artikel' => $artikel,
             ];
         }
@@ -291,12 +312,16 @@ class ArtikelService
                 break;
             }
 
+            // Ambil use_cta dari perintah induk agar diwariskan ke artikel ini
+            $perintah = \App\Models\PerintahArtikel::find($perintahArtikelId);
+
             $artikel = \App\Models\Artikel::create([
                 'judul' => $judul,
                 'perintah_artikel_id' => $perintahArtikelId,
                 'website_klien_id' => $websiteKlienId,
                 'status' => 'terjadwal',
                 'tanggal_jadwal' => $currentDate->copy(),
+                'use_cta' => $perintah?->use_cta ?? false,
             ]);
 
             $savedIds[] = $artikel->id;

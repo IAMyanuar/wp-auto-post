@@ -148,7 +148,10 @@
                         value="{{ $artikel->tanggal_jadwal ? $artikel->tanggal_jadwal->format('Y-m-d\TH:i') : now()->format('Y-m-d\TH:i') }}">
                 @endif
 
-                @if($artikel->status === 'terpublish' && !empty($artikel->wp_id))
+                @if(!empty($artikel->wp_id))
+                    @php
+                        $isWpDraft = str_contains($artikel->wp_url ?? '', '?p=') || $artikel->status === 'terjadwal';
+                    @endphp
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center gap-3">
                             <div class="bg-purple-100 text-purple-600 p-2 rounded-lg flex items-center justify-center">
@@ -161,11 +164,10 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Status Publikasi WP</label>
                                 <select name="wp_status"
                                     class="w-full bg-gray-50/50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white transition-all shadow-sm">
-                                    <option value="publish" selected>Publish (Tetap Terbit)</option>
-                                    <option value="draft">Draft (Ubah ke Draf di WP)</option>
+                                    <option value="publish" {{ !$isWpDraft ? 'selected' : '' }}>Publish (Terbit di WP)</option>
+                                    <option value="draft" {{ $isWpDraft ? 'selected' : '' }}>Draft (Ubah ke Draf di WP)</option>
                                 </select>
-                                <p class="text-xs text-gray-500 mt-1.5">Pilih "Draft" jika ingin mengubah status artikel dari
-                                    terbit menjadi draf sementara di situs WordPress.</p>
+                                <p class="text-xs text-gray-500 mt-1.5">Pilih status publikasi artikel pada situs WordPress (Publish atau Draft).</p>
                             </div>
                         </div>
                     </div>
@@ -179,6 +181,75 @@
                             <span class="icon-[material-symbols-light--save-outline] w-5 h-5"></span>
                             Simpan Perubahan
                         </button>
+                    </div>
+                </div>
+
+                {{-- Card: Status Plagiasi (Uniqtext) --}}
+                @php
+                    $cekTerakhir = $artikel->cekDuplikasiTerakhir;
+                    $skor = $cekTerakhir ? $cekTerakhir->skor_keunikan : null;
+                    $isUnique = $skor !== null && $skor >= 50;
+                @endphp
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-indigo-100 text-indigo-600 p-2 rounded-lg flex items-center justify-center">
+                                <span class="icon-[material-symbols-light--verified-user-outline] w-5 h-5 block"></span>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-800 text-base">Cek Plagiasi (Uniqtext)</h3>
+                            </div>
+                        </div>
+                        <button type="button" id="btn-cek-plagiasi"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-xl cursor-pointer transition-all shadow-2xs">
+                            Cek Keunikan
+                        </button>
+                    </div>
+
+                    <div class="p-6 space-y-4">
+                        @if($cekTerakhir)
+                            <div class="flex items-center justify-between p-3.5 rounded-xl border {{ $isUnique ? 'bg-emerald-50/60 border-emerald-200' : 'bg-red-50/60 border-red-200' }}">
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Skor Keunikan</p>
+                                    <p class="text-2xl font-black {{ $isUnique ? 'text-emerald-700' : 'text-red-700' }} mt-0.5">
+                                        {{ $skor }}%
+                                        <span class="text-xs font-medium {{ $isUnique ? 'text-emerald-600' : 'text-red-600' }}">
+                                            (Duplikat {{ 100 - $skor }}%)
+                                        </span>
+                                    </p>
+                                </div>
+                                <span class="px-2.5 py-1 text-xs font-bold rounded-full {{ $isUnique ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300' }}">
+                                    {{ $isUnique ? 'Aman (≤ 50%)' : 'Duplikat (> 50%)' }}
+                                </span>
+                            </div>
+
+                            <div class="text-xs text-gray-500 flex items-center justify-between">
+                                <span>Percobaan Ke: <strong class="text-gray-700">{{ $cekTerakhir->percobaan_ke }} dari Max 3</strong></span>
+                                <span>Waktu: <strong class="text-gray-700">{{ $cekTerakhir->created_at->diffForHumans() }}</strong></span>
+                            </div>
+
+                            @if(is_array($cekTerakhir->hasil) && count($cekTerakhir->hasil) > 0)
+                                <div class="border-t border-gray-100 pt-3">
+                                    <p class="text-xs font-bold text-gray-700 mb-2">Sumber Duplikat Terdeteksi:</p>
+                                    <ul class="space-y-2 max-h-48 overflow-y-auto text-xs pr-1">
+                                        @foreach($cekTerakhir->hasil as $dup)
+                                            <li class="p-2.5 bg-gray-50 rounded-lg border border-gray-200/60">
+                                                <a href="{{ $dup['link'] ?? '#' }}" target="_blank" class="font-semibold text-blue-600 hover:underline block truncate">
+                                                    {{ $dup['title'] ?? ($dup['link'] ?? 'Sumber Duplikat') }}
+                                                </a>
+                                                <span class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 font-bold rounded text-[10px]">
+                                                    Kemiripan: {{ $dup['percent_dup'] ?? 0 }}%
+                                                </span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+                        @else
+                            <div class="p-4 text-center border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                <p class="text-xs text-gray-500 italic">Belum ada riwayat pengecekan keunikan artikel ini.</p>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -306,5 +377,58 @@
                 document.querySelectorAll('.existing-image-item').forEach(el => el.classList.remove('hidden'));
             }
         }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const btnCekPlagiasi = document.getElementById('btn-cek-plagiasi');
+            if (btnCekPlagiasi) {
+                btnCekPlagiasi.addEventListener('click', function () {
+                    btnCekPlagiasi.disabled = true;
+                    btnCekPlagiasi.innerHTML = '<span class="icon-[svg-spinners--180-ring] w-4 h-4 animate-spin inline-block mr-1"></span> Mengecek...';
+
+                    fetch("{{ route('penjadwalan.cek-plagiasi', $artikel->id) }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        btnCekPlagiasi.disabled = false;
+                        btnCekPlagiasi.innerText = 'Cek Keunikan';
+                        if (data.success) {
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Selesai!',
+                                    text: 'Pengecekan plagiasi berhasil dilakukan. Halaman akan dimuat ulang...',
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                }).then(() => window.location.reload());
+                            } else {
+                                alert('Pengecekan plagiasi berhasil!');
+                                window.location.reload();
+                            }
+                        } else {
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal',
+                                    text: data.message || 'Terjadi kesalahan saat memeriksa plagiasi.'
+                                });
+                            } else {
+                                alert(data.message || 'Terjadi kesalahan saat memeriksa plagiasi.');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        btnCekPlagiasi.disabled = false;
+                        btnCekPlagiasi.innerText = 'Cek Keunikan';
+                        alert('Terjadi kesalahan jaringan saat melakukan pengecekan.');
+                    });
+                });
+            }
+        });
     </script>
 @endpush

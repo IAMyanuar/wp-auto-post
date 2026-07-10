@@ -13,10 +13,16 @@ class PerintahArtikel extends Model
         'website_klien_id',
         'topik',
         'jumlah_artikel',
+        'use_cta',
         'n8n_execution_id',
         'status',
         'n8n_status',
     ];
+
+    protected $casts = [
+        'use_cta' => 'boolean',
+    ];
+
 
     public function websiteKlien()
     {

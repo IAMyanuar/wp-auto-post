@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/penjadwalan/{artikel}', [ArtikelController::class, 'update'])->name('penjadwalan.update');
     Route::delete('/penjadwalan/{artikel}', [ArtikelController::class, 'destroy'])->name('penjadwalan.destroy');
     Route::post('/penjadwalan/{artikel}/retry', [ArtikelController::class, 'retry'])->name('penjadwalan.retry');
+    Route::post('/penjadwalan/{artikel}/cek-plagiasi', [ArtikelController::class, 'cekPlagiasi'])->name('penjadwalan.cek-plagiasi');
 
 
     // Riwayat Artikel Routes

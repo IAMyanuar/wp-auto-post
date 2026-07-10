@@ -421,7 +421,24 @@
                     setTimeout(() => window.location.reload(), 1200);
                 })
                 .listen('.KontenArtikelTersimpan', (e) => {
-                    showToast('Proses konten artikel selesai!', 'success');
+                    const status = e.status ?? null;
+
+                    if (status === 'diproses') {
+                        showToast('Artikel sedang diproses...', 'info');
+                        return;
+                    }
+
+                    if (status === 'gagal') {
+                        const errorMsg = e.message || 'Gagal memproses artikel. Silakan cek log atau coba retry.';
+                        showToast(errorMsg, 'error');
+                    } else if (status === 'terpublish') {
+                        showToast('Artikel berhasil di-publish ke WordPress!', 'success');
+                    } else if (status === 'terjadwal') {
+                        showToast('Artikel berhasil disimpan sebagai draft di WordPress!', 'success');
+                    } else {
+                        showToast('Status artikel diperbarui. Memuat ulang...', 'success');
+                    }
+
                     setTimeout(() => window.location.reload(), 1200);
                 });
         }

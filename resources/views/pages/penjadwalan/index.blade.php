@@ -347,56 +347,58 @@
                             // Desktop: Compact icon-only buttons
                             if (status === 'gagal') {
                                 buttonsHtml += `
-                                                            <form action="${retryUrl}" method="POST" class="inline-block form-retry">
+                                                                <form action="${retryUrl}" method="POST" class="inline-block form-retry">
+                                                                    <input type="hidden" name="_token" value="${csrfToken}">
+                                                                    <button type="submit" title="Coba Ulang Semua (Retry)" class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors">
+                                                                        <span class="icon-[material-symbols-light--refresh] w-5 h-5"></span>
+                                                                    </button>
+                                                                </form>
+                                                            `;
+                            }
+                            buttonsHtml += `
+                                                            <a href="${editUrl}" class="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white transition-colors">
+                                                                <span class="icon-[material-symbols-light--edit-square-outline] w-5 h-5"></span>
+                                                            </a>
+                                                            <form action="${deleteUrl}" method="POST" class="inline-block form-delete">
                                                                 <input type="hidden" name="_token" value="${csrfToken}">
-                                                                <button type="submit" title="Coba Ulang Semua (Retry)" class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors">
-                                                                    <span class="icon-[material-symbols-light--refresh] w-5 h-5"></span>
+                                                                <input type="hidden" name="_method" value="DELETE">
+                                                                <button type="submit" class="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-colors">
+                                                                    <span class="icon-[material-symbols-light--delete-outline] w-5 h-5"></span>
                                                                 </button>
                                                             </form>
                                                         `;
-                            }
-                            buttonsHtml += `
-                                                        <a href="${editUrl}" class="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white transition-colors">
-                                                            <span class="icon-[material-symbols-light--edit-square-outline] w-5 h-5"></span>
-                                                        </a>
-                                                        <form action="${deleteUrl}" method="POST" class="inline-block form-delete">
-                                                            <input type="hidden" name="_token" value="${csrfToken}">
-                                                            <input type="hidden" name="_method" value="DELETE">
-                                                            <button type="submit" class="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 text-red-600 hover:bg-red-600 hover:text-white transition-colors">
-                                                                <span class="icon-[material-symbols-light--delete-outline] w-5 h-5"></span>
-                                                            </button>
-                                                        </form>
-                                                    `;
                         } else {
                             // Mobile: Larger buttons with labels
                             if (status === 'gagal') {
                                 buttonsHtml += `
-                                                            <form action="${retryUrl}" method="POST" class="form-retry">
+                                                                <form action="${retryUrl}" method="POST" class="form-retry">
+                                                                    <input type="hidden" name="_token" value="${csrfToken}">
+                                                                    <button type="submit" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-blue-50 text-blue-600 transition-all text-xs font-bold">
+                                                                        <span class="icon-[material-symbols-light--refresh] w-4 h-4"></span> Retry
+                                                                    </button>
+                                                                </form>
+                                                            `;
+                            }
+                            buttonsHtml += `
+                                                            <a href="${editUrl}" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-orange-50 text-orange-600 transition-all text-xs font-bold">
+                                                                <span class="icon-[material-symbols-light--edit-square-outline] w-4 h-4"></span> Edit
+                                                            </a>
+                                                            <form action="${deleteUrl}" method="POST" class="form-delete">
                                                                 <input type="hidden" name="_token" value="${csrfToken}">
-                                                                <button type="submit" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-blue-50 text-blue-600 transition-all text-xs font-bold">
-                                                                    <span class="icon-[material-symbols-light--refresh] w-4 h-4"></span> Retry
+                                                                <input type="hidden" name="_method" value="DELETE">
+                                                                <button type="submit" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-red-50 text-red-600 transition-all text-xs font-bold">
+                                                                    <span class="icon-[material-symbols-light--delete-outline] w-4 h-4"></span> Hapus
                                                                 </button>
                                                             </form>
                                                         `;
-                            }
-                            buttonsHtml += `
-                                                        <a href="${editUrl}" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-orange-50 text-orange-600 transition-all text-xs font-bold">
-                                                            <span class="icon-[material-symbols-light--edit-square-outline] w-4 h-4"></span> Edit
-                                                        </a>
-                                                        <form action="${deleteUrl}" method="POST" class="form-delete">
-                                                            <input type="hidden" name="_token" value="${csrfToken}">
-                                                            <input type="hidden" name="_method" value="DELETE">
-                                                            <button type="submit" class="h-9 px-3 flex items-center justify-center gap-2 rounded-xl bg-red-50 text-red-600 transition-all text-xs font-bold">
-                                                                <span class="icon-[material-symbols-light--delete-outline] w-4 h-4"></span> Hapus
-                                                            </button>
-                                                        </form>
-                                                    `;
                         }
 
-                        container.innerHTML = buttonsHtml;
                     });
                 }
             }
+
+            // Expose updateBadge ke window agar bisa diakses oleh listener Echo
+            window.updateBadge = updateBadge;
         })();
     </script>
 @endpush
@@ -416,7 +418,30 @@
                 });
 
                 channel.listen('.KontenArtikelTersimpan', (e) => {
-                    showToast('Konten artikel berhasil diperbarui di WordPress! Memperbarui tabel...', 'success');
+                    const status = e.status ?? null;
+
+                    if (status === 'diproses') {
+                        // Hanya update badge tanpa reload — tunggu status final
+                        showToast('Artikel sedang diproses...', 'info');
+                        if (typeof window.updateBadge === 'function') {
+                            window.updateBadge(e.artikelId, { status: 'diproses' });
+                        }
+                        return;
+                    }
+
+                    if (status === 'gagal') {
+                        const errorMsg = e.message || 'Gagal memproses artikel. Silakan cek log atau coba retry.';
+                        showToast(errorMsg, 'error');
+                        setTimeout(() => window.location.reload(), 2000);
+                        return;
+                    } else if (status === 'terpublish') {
+                        showToast('Artikel berhasil di-publish ke WordPress!', 'success');
+                    } else if (status === 'terjadwal') {
+                        showToast('Artikel berhasil disimpan sebagai draft di WordPress!', 'success');
+                    } else {
+                        showToast('Status artikel diperbarui. Memuat ulang...', 'success');
+                    }
+
                     setTimeout(() => window.location.reload(), 1200);
                 });
             } else {

@@ -39,4 +39,11 @@ return [
         'api_key' => env('N8N_API_TOKEN'),
     ],
 
+    'uniqtext' => [
+        'email' => env('UNIQTEXT_EMAIL'),
+        'token_api' => env('UNIQTEXT_TOKEN_API'),
+        'uid' => env('UNIQTEXT_UID'),
+        'team_id' => env('UNIQTEXT_TEAM_ID', ''),
+    ],
+
 ];

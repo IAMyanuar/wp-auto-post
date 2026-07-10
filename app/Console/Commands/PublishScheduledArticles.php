@@ -28,12 +28,13 @@ class PublishScheduledArticles extends Command
      */
     public function handle()
     {
-        // Cari artikel dengan status terjadwal, yang waktu jadwalnya (tanggal_jadwal) <= sekarang
+        // Cari artikel dengan status terjadwal, yang waktu jadwalnya (tanggal_jadwal) <= sekarang, dan memiliki gambar di artikel_gambar
         $artikels = Artikel::with('websiteKlien')
             ->where('status', 'terjadwal')
             ->whereNotNull('tanggal_jadwal')
             ->where('tanggal_jadwal', '<=', now())
             ->whereNotNull('wp_id')
+            ->whereHas('gambars')
             ->get();
 
         if ($artikels->isEmpty()) {
