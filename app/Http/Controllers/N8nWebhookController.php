@@ -63,14 +63,6 @@ class N8nWebhookController extends Controller
         ], 200);
     }
 
-    /**
-     * Menerima konten dari N8N, menyimpannya ke DB,
-     * lalu mendispatch job background untuk proses berat:
-     * cek plagiasi, upload gambar ke WP, kirim artikel ke WP, dan broadcast ke browser.
-     *
-     * Dengan cara ini webhook merespons instan (< 1 detik) ke N8N
-     * dan broadcast() dijamin terpanggil dari dalam Job tanpa risiko timeout.
-     */
     public function receiveKonten(Request $request)
     {
         $data = $request->merge([

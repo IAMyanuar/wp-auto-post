@@ -1,7 +1,7 @@
 @extends('layout.master')
 
-@section('title', 'Edit Detail Artikel')
-@section('page_title', 'Edit Detail Artikel')
+@section('title', 'Edit Artikel')
+@section('page_title', 'Edit Artikel')
 
 @section('content')
     <form action="{{ route('penjadwalan.update', $artikel->id) }}" method="POST" enctype="multipart/form-data">
@@ -27,7 +27,7 @@
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
                         <div>
-                            <h2 class="text-xl font-bold text-gray-900">Edit Detail Artikel</h2>
+                            <h2 class="text-xl font-bold text-gray-900">Edit Artikel</h2>
                             <p class="text-gray-500 text-sm mt-0.5">Sesuaikan konten dan pengaturan publikasi.</p>
                         </div>
                         <span
@@ -167,7 +167,8 @@
                                     <option value="publish" {{ !$isWpDraft ? 'selected' : '' }}>Publish (Terbit di WP)</option>
                                     <option value="draft" {{ $isWpDraft ? 'selected' : '' }}>Draft (Ubah ke Draf di WP)</option>
                                 </select>
-                                <p class="text-xs text-gray-500 mt-1.5">Pilih status publikasi artikel pada situs WordPress (Publish atau Draft).</p>
+                                <p class="text-xs text-gray-500 mt-1.5">Pilih status publikasi artikel pada situs WordPress
+                                    (Publish atau Draft).</p>
                             </div>
                         </div>
                     </div>
@@ -194,7 +195,7 @@
                     <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <div class="bg-indigo-100 text-indigo-600 p-2 rounded-lg flex items-center justify-center">
-                                <span class="icon-[material-symbols-light--verified-user-outline] w-5 h-5 block"></span>
+                                <span class="icon-[material-symbols--tab-duplicate-outline-rounded] w-5 h-5 block"></span>
                             </div>
                             <div>
                                 <h3 class="font-semibold text-gray-800 text-base">Cek Plagiasi (Uniqtext)</h3>
@@ -208,7 +209,8 @@
 
                     <div class="p-6 space-y-4">
                         @if($cekTerakhir)
-                            <div class="flex items-center justify-between p-3.5 rounded-xl border {{ $isUnique ? 'bg-emerald-50/60 border-emerald-200' : 'bg-red-50/60 border-red-200' }}">
+                            <div
+                                class="flex items-center justify-between p-3.5 rounded-xl border {{ $isUnique ? 'bg-emerald-50/60 border-emerald-200' : 'bg-red-50/60 border-red-200' }}">
                                 <div>
                                     <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Skor Keunikan</p>
                                     <p class="text-2xl font-black {{ $isUnique ? 'text-emerald-700' : 'text-red-700' }} mt-0.5">
@@ -218,14 +220,15 @@
                                         </span>
                                     </p>
                                 </div>
-                                <span class="px-2.5 py-1 text-xs font-bold rounded-full {{ $isUnique ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300' }}">
+                                <span
+                                    class="px-2.5 py-1 text-xs font-bold rounded-full {{ $isUnique ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300' }}">
                                     {{ $isUnique ? 'Aman (≤ 50%)' : 'Duplikat (> 50%)' }}
                                 </span>
                             </div>
 
                             <div class="text-xs text-gray-500 flex items-center justify-between">
-                                <span>Percobaan Ke: <strong class="text-gray-700">{{ $cekTerakhir->percobaan_ke }} dari Max 3</strong></span>
-                                <span>Waktu: <strong class="text-gray-700">{{ $cekTerakhir->created_at->diffForHumans() }}</strong></span>
+                                <span>Percobaan Ke: <strong class="text-gray-700">{{ $cekTerakhir->percobaan_ke }} dari Max
+                                        3</strong></span>
                             </div>
 
                             @if(is_array($cekTerakhir->hasil) && count($cekTerakhir->hasil) > 0)
@@ -234,10 +237,12 @@
                                     <ul class="space-y-2 max-h-48 overflow-y-auto text-xs pr-1">
                                         @foreach($cekTerakhir->hasil as $dup)
                                             <li class="p-2.5 bg-gray-50 rounded-lg border border-gray-200/60">
-                                                <a href="{{ $dup['link'] ?? '#' }}" target="_blank" class="font-semibold text-blue-600 hover:underline block truncate">
+                                                <a href="{{ $dup['link'] ?? '#' }}" target="_blank"
+                                                    class="font-semibold text-blue-600 hover:underline block truncate">
                                                     {{ $dup['title'] ?? ($dup['link'] ?? 'Sumber Duplikat') }}
                                                 </a>
-                                                <span class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 font-bold rounded text-[10px]">
+                                                <span
+                                                    class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 font-bold rounded text-[10px]">
                                                     Kemiripan: {{ $dup['percent_dup'] ?? 0 }}%
                                                 </span>
                                             </li>
@@ -360,13 +365,13 @@
                         const div = document.createElement('div');
                         div.className = 'flex items-center gap-3 p-2.5 bg-white border border-orange-200 rounded-xl shadow-2xs overflow-hidden';
                         div.innerHTML = `
-                                                                        <div class="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
-                                                                            <img src="${e.target.result}" class="w-full h-full object-cover">
-                                                                        </div>
-                                                                        <div class="flex-1 min-w-0">
-                                                                            <p class="text-xs font-semibold text-gray-800 truncate" title="${file.name}">${file.name}</p>
-                                                                        </div>
-                                                                    `;
+                                                                                                <div class="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
+                                                                                                    <img src="${e.target.result}" class="w-full h-full object-cover">
+                                                                                                </div>
+                                                                                                <div class="flex-1 min-w-0">
+                                                                                                    <p class="text-xs font-semibold text-gray-800 truncate" title="${file.name}">${file.name}</p>
+                                                                                                </div>
+                                                                                            `;
                         thumbnails.appendChild(div);
                     };
                     reader.readAsDataURL(file);
@@ -393,40 +398,40 @@
                             'Accept': 'application/json'
                         }
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        btnCekPlagiasi.disabled = false;
-                        btnCekPlagiasi.innerText = 'Cek Keunikan';
-                        if (data.success) {
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Selesai!',
-                                    text: 'Pengecekan plagiasi berhasil dilakukan. Halaman akan dimuat ulang...',
-                                    timer: 1500,
-                                    showConfirmButton: false
-                                }).then(() => window.location.reload());
+                        .then(response => response.json())
+                        .then(data => {
+                            btnCekPlagiasi.disabled = false;
+                            btnCekPlagiasi.innerText = 'Cek Keunikan';
+                            if (data.success) {
+                                if (typeof Swal !== 'undefined') {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Selesai!',
+                                        text: 'Pengecekan plagiasi berhasil dilakukan. Halaman akan dimuat ulang...',
+                                        timer: 1500,
+                                        showConfirmButton: false
+                                    }).then(() => window.location.reload());
+                                } else {
+                                    alert('Pengecekan plagiasi berhasil!');
+                                    window.location.reload();
+                                }
                             } else {
-                                alert('Pengecekan plagiasi berhasil!');
-                                window.location.reload();
+                                if (typeof Swal !== 'undefined') {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Gagal',
+                                        text: data.message || 'Terjadi kesalahan saat memeriksa plagiasi.'
+                                    });
+                                } else {
+                                    alert(data.message || 'Terjadi kesalahan saat memeriksa plagiasi.');
+                                }
                             }
-                        } else {
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Gagal',
-                                    text: data.message || 'Terjadi kesalahan saat memeriksa plagiasi.'
-                                });
-                            } else {
-                                alert(data.message || 'Terjadi kesalahan saat memeriksa plagiasi.');
-                            }
-                        }
-                    })
-                    .catch(error => {
-                        btnCekPlagiasi.disabled = false;
-                        btnCekPlagiasi.innerText = 'Cek Keunikan';
-                        alert('Terjadi kesalahan jaringan saat melakukan pengecekan.');
-                    });
+                        })
+                        .catch(error => {
+                            btnCekPlagiasi.disabled = false;
+                            btnCekPlagiasi.innerText = 'Cek Keunikan';
+                            alert('Terjadi kesalahan jaringan saat melakukan pengecekan.');
+                        });
                 });
             }
         });

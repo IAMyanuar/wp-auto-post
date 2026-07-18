@@ -114,7 +114,6 @@ class ArtikelService
 
     public function generateKonten(?int $websiteKlienId = null, ?int $specificArtikelId = null, array $retryDuplikatData = []): array
     {
-        // 1. Reset otomatis artikel yang stuck di 'diproses' lebih dari 10 menit menjadi 'gagal' agar tidak memblokir antrean
         \App\Models\Artikel::where('status', 'diproses')
             ->where('updated_at', '<=', now()->subMinutes(10))
             ->update([
@@ -312,7 +311,6 @@ class ArtikelService
                 break;
             }
 
-            // Ambil use_cta dari perintah induk agar diwariskan ke artikel ini
             $perintah = \App\Models\PerintahArtikel::find($perintahArtikelId);
 
             $artikel = \App\Models\Artikel::create([

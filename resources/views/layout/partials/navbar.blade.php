@@ -7,12 +7,6 @@
         <img src="{{ asset('assets/properti/Logo.png') }}" alt="Logo" class="h-8 object-contain">
     </a>
 
-    <!-- Desktop: Page Breadcrumb / Greeting -->
-    <div class="hidden md:flex flex-col justify-center">
-        <span class="text-xs font-semibold uppercase tracking-widest" style="color: hsl(var(--text-subtle));">WP Auto Post</span>
-        <span class="text-[15px] font-bold leading-tight" style="color: hsl(var(--text-base));">@yield('page_title', 'Dashboard')</span>
-    </div>
-
     <!-- Spacer -->
     <div class="flex-1"></div>
 
@@ -20,15 +14,20 @@
     <div class="flex items-center gap-2.5">
         <!-- Profile Button -->
         <div class="relative group">
-            <button class="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer">
+            <button
+                class="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-xl transition-all duration-200 cursor-pointer">
                 <!-- Avatar -->
                 <div class="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
-                    <img src="https://ui-avatars.com/api/?name=Admin&background=111827&color=fff&bold=true&size=100" alt="Avatar" class="w-full h-full object-cover">
+                    <img src="https://ui-avatars.com/api/?name=Admin&background=111827&color=fff&bold=true&size=100"
+                        alt="Avatar" class="w-full h-full object-cover">
                 </div>
-                <span class="text-[13px] font-semibold hidden sm:block" style="color: hsl(var(--text-base));">Admin</span>
+                <span class="text-[13px] font-semibold hidden sm:block"
+                    style="color: hsl(var(--text-base));">Admin</span>
                 <!-- Chevron -->
-                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-current transition-transform duration-200 group-hover:rotate-180" style="color: hsl(var(--text-subtle));">
-                    <path d="M7 10l5 5 5-5z"/>
+                <svg viewBox="0 0 24 24"
+                    class="w-4 h-4 fill-current transition-transform duration-200 group-hover:rotate-180"
+                    style="color: hsl(var(--text-subtle));">
+                    <path d="M7 10l5 5 5-5z" />
                 </svg>
             </button>
 
@@ -37,11 +36,11 @@
                 style="background: hsl(var(--surface-1)); border: 1px solid hsl(var(--border-light)); box-shadow: var(--shadow-card-lg);">
                 <a href="{{ route('logout') }}"
                     class="flex items-center gap-2.5 w-full px-3 py-2.5 text-[13px] font-medium rounded-lg transition-colors duration-150"
-                    style="color: hsl(var(--danger));"
-                    onmouseenter="this.style.background='hsl(0 84% 97%)'"
+                    style="color: hsl(var(--danger));" onmouseenter="this.style.background='hsl(0 84% 97%)'"
                     onmouseleave="this.style.background='transparent'">
                     <svg viewBox="0 0 24 24" class="w-4 h-4 fill-current">
-                        <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                        <path
+                            d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
                     </svg>
                     Logout
                 </a>

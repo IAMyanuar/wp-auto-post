@@ -106,7 +106,7 @@
                 </div>
 
                 <!-- Toggle Auto Publish -->
-                <div class="flex items-center pt-2 gap-3 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                <div class="flex items-center pt-2 gap-3 bg-gray-50/50 p-4 rounded-xl border border-gray-100 hidden">
                     <label class="inline-flex items-center cursor-pointer flex-shrink-0">
                         <input type="checkbox" id="create-publikasi-otomatis" name="publikasi_otomatis" value="1"
                             class="sr-only peer" checked>

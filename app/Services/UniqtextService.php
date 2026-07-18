@@ -90,7 +90,6 @@ class UniqtextService
                 'found' => count($hasil),
             ]);
 
-            // Kirim laporan ke Web Covenant (wajib sesuai dokumentasi)
             $remainingQuota = $this->getRemainingQuotaQuick();
             $this->sendTeamReport(
                 content: $cleanText,

@@ -23,7 +23,7 @@
                 class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white mb-6 shadow-lg shadow-indigo-500/20">
                 <span class="icon-[material-symbols-light--passkey-rounded] w-8 h-8"></span>
             </div>
-            <h1 class="text-2xl font-bold text-gray-900">Welcome</h1>
+            <h1 class="text-2xl font-bold text-gray-900">Login</h1>
             <p class="text-sm text-gray-500 mt-2">Masuk ke Dashboard Manajemen Konten</p>
         </div>
 
@@ -38,7 +38,7 @@
                     </div>
                     <input type="email" id="email" name="email"
                         class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm placeholder-gray-400 font-medium"
-                        placeholder="admin@example.com" required>
+                        placeholder="Silahkan inputkan email anda..." required>
                 </div>
             </div>
 
@@ -57,14 +57,6 @@
                         class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm placeholder-gray-400 font-medium"
                         placeholder="••••••••" required>
                 </div>
-            </div>
-
-            <div class="flex items-center">
-                <input id="remember-me" name="remember-me" type="checkbox"
-                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer transition-all">
-                <label for="remember-me" class="ml-2 block text-sm text-gray-700 cursor-pointer">
-                    Ingat saya
-                </label>
             </div>
 
             <button type="submit"

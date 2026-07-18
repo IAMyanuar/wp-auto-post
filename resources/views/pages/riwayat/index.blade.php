@@ -73,7 +73,7 @@
 
             @php
                 $statusConfig = [
-                    'terpublish' => ['label' => 'Terbit', 'bg' => 'bg-green-50', 'text' => 'text-green-700', 'border' => 'border-green-200', 'dot' => 'bg-green-500'],
+                    'terpublish' => ['label' => 'Terpublish', 'bg' => 'bg-green-50', 'text' => 'text-green-700', 'border' => 'border-green-200', 'dot' => 'bg-green-500'],
                     'gagal' => ['label' => 'Gagal', 'bg' => 'bg-red-50', 'text' => 'text-red-700', 'border' => 'border-red-200', 'dot' => 'bg-red-500'],
                     'diproses' => ['label' => 'Diproses...', 'bg' => 'bg-orange-50', 'text' => 'text-orange-700', 'border' => 'border-orange-200', 'dot' => 'bg-orange-500 animate-pulse'],
                 ];
@@ -87,7 +87,7 @@
                             <th class="py-4 px-5 text-sm font-semibold rounded-tl-xl w-12">No.</th>
                             <th class="py-4 px-5 text-sm font-semibold">Judul Artikel</th>
                             <th class="py-4 px-5 text-sm font-semibold">Website</th>
-                            <th class="py-4 px-5 text-sm font-semibold">Tanggal Terbit</th>
+                            <th class="py-4 px-5 text-sm font-semibold">Tanggal Terpublish</th>
                             <th class="py-4 px-5 text-sm font-semibold">Status</th>
                             <th class="py-4 px-5 text-sm font-semibold text-right rounded-tr-xl">Aksi</th>
                         </tr>

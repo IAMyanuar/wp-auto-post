@@ -44,14 +44,10 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
             return;
         }
 
-        // Jika artikel sudah tidak berstatus 'diproses' (misal sudah terpublish / gagal dari job lain),
-        // jangan proses ulang untuk menghindari duplikasi.
         if ($artikel->status !== 'diproses') {
             Log::info("ProsesDanKirimKeWordPressJob: Artikel ID {$artikel->id} sudah berstatus '{$artikel->status}', skip proses.");
             return;
         }
-
-        // ── 1. Cek Plagiasi via Uniqtext ──────────────────────────────────────────
         $uniqtextService = app(\App\Services\UniqtextService::class);
         $checkResult = $uniqtextService->checkArticle($artikel);
 
@@ -63,14 +59,13 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
 
                 $artikelService = app(\App\Services\ArtikelService::class);
                 $retryPayload = [
-                    'is_retry_duplikat'  => true,
-                    'percobaan_ke'       => $percobaanKe + 1,
+                    'is_retry_duplikat' => true,
+                    'percobaan_ke' => $percobaanKe + 1,
                     'dup_rate_sebelumnya' => $checkResult['dup_rate'],
-                    'snips_dup'          => $checkResult['snips_dup'] ?? [],
-                    'catatan_koreksi'    => "Konten sebelumnya terdeteksi duplikat sebesar {$checkResult['dup_rate']}%. Tolong tulis ulang artikel ini dengan parafrase total agar 100% unik.",
+                    'snips_dup' => $checkResult['snips_dup'] ?? [],
+                    'catatan_koreksi' => "Konten sebelumnya terdeteksi duplikat sebesar {$checkResult['dup_rate']}%. Tolong tulis ulang artikel ini dengan parafrase total agar 100% unik.",
                 ];
 
-                // generateKonten() sudah akan broadcast status 'diproses' secara internal
                 $artikelService->generateKonten($artikel->website_klien_id, $artikel->id, $retryPayload);
                 return;
             }
@@ -78,10 +73,8 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
             Log::info("ProsesDanKirimKeWordPressJob: Artikel ID {$artikel->id} telah mencapai batas maksimal percobaan ({$percobaanKe}x) dengan duplikasi {$checkResult['dup_rate']}%. Tetap dikirim ke WordPress.");
         }
 
-        // ── 2. Upload gambar ke WordPress (jika belum pernah diupload) ─────────────
         $this->ensureImagesUploadedToWordPress($artikel);
 
-        // ── 3. Kirim artikel ke WordPress ─────────────────────────────────────────
         $wpResult = $this->sendToWordPress($artikel);
 
         if ($wpResult['success']) {
@@ -89,7 +82,7 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
 
             $updateData = [
                 'status' => $statusAkhir,
-                'wp_id'  => $wpResult['wp_id'],
+                'wp_id' => $wpResult['wp_id'],
                 'wp_url' => $wpResult['wp_url'],
             ];
 
@@ -100,11 +93,10 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
             $artikel->update($updateData);
 
             Log::info("ProsesDanKirimKeWordPressJob: Artikel ID {$artikel->id} berhasil dikirim ke WordPress dengan status '{$statusAkhir}'.", [
-                'wp_id'  => $wpResult['wp_id'],
+                'wp_id' => $wpResult['wp_id'],
                 'wp_url' => $wpResult['wp_url'],
             ]);
 
-            // ── Broadcast ke browser via WebSocket ────────────────────────────────
             broadcast(new \App\Events\JudulArtikelTersimpan($artikel->website_klien_id));
             broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, $statusAkhir));
 
@@ -123,10 +115,6 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
         broadcast(new \App\Events\KontenArtikelTersimpan($artikel->id, $artikel->website_klien_id, 'gagal', $pesanError));
     }
 
-    /**
-     * Mengirim artikel ke WordPress REST API.
-     * Method ini dipindahkan dari N8nWebhookController::sendToWordPress().
-     */
     private function sendToWordPress(Artikel $artikel): array
     {
         $website = $artikel->websiteKlien;
@@ -136,11 +124,11 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
         }
 
         $wpBaseUrl = $website->base_url;
-        $wpApiUrl  = "{$wpBaseUrl}/wp-json/wp/v2/posts";
+        $wpApiUrl = "{$wpBaseUrl}/wp-json/wp/v2/posts";
 
         Log::info("Mengirim ke WordPress", [
             'artikel_id' => $artikel->id,
-            'website'    => $website->nama_website,
+            'website' => $website->nama_website,
         ]);
 
         $featuredMediaId = null;
@@ -154,14 +142,14 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
             ]);
         }
 
-        $wpStatus = ($artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now()) ? 'publish' : 'draft';
+        $wpStatus = ($artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now() && $artikel->gambars->isNotEmpty()) ? 'publish' : 'draft';
 
         $body = [
-            'title'   => $artikel->judul,
+            'title' => $artikel->judul,
             'content' => $artikel->konten,
             'category' => (string) ($artikel->kategori ?? ''),
-            'tags'     => (string) ($artikel->tags ?? ''),
-            'status'   => $wpStatus,
+            'tags' => (string) ($artikel->tags ?? ''),
+            'status' => $wpStatus,
         ];
 
         if ($featuredMediaId) {
@@ -187,25 +175,25 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
 
                 return [
                     'success' => true,
-                    'wp_id'   => $data['id'] ?? null,
-                    'wp_url'  => $data['link'] ?? null,
+                    'wp_id' => $data['id'] ?? null,
+                    'wp_url' => $data['link'] ?? null,
                 ];
             }
 
             Log::error('WordPress API error', [
                 'artikel_id' => $artikel->id,
-                'status'     => $response->status(),
-                'body'       => $response->body(),
+                'status' => $response->status(),
+                'body' => $response->body(),
             ]);
 
             return [
                 'success' => false,
-                'error'   => "WordPress API error [{$response->status()}]: " . $response->body(),
+                'error' => "WordPress API error [{$response->status()}]: " . $response->body(),
             ];
         } catch (\Exception $e) {
             Log::error('Exception sending to WordPress', [
                 'artikel_id' => $artikel->id,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return ['success' => false, 'error' => $e->getMessage()];
@@ -223,9 +211,9 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
             return;
         }
 
-        $wpBaseUrl       = $website->base_url;
+        $wpBaseUrl = $website->base_url;
         $wpMediaEndpoint = "{$wpBaseUrl}/wp-json/wp/v2/media";
-        $auth            = [$website->username, $website->password];
+        $auth = [$website->username, $website->password];
 
         $artikel->load('gambars');
 
@@ -250,22 +238,22 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
             }
 
             $extension = pathinfo($pathImage, PATHINFO_EXTENSION);
-            $filename  = Str::slug($artikel->judul) . '-img' . $gambar->id . '.' . $extension;
-            $mimeType  = mime_content_type($pathImage);
+            $filename = Str::slug($artikel->judul) . '-img' . $gambar->id . '.' . $extension;
+            $mimeType = mime_content_type($pathImage);
 
             try {
                 $response = Http::withoutVerifying()
                     ->withBasicAuth(...$auth)
                     ->withHeaders([
                         'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-                        'Content-Type'        => $mimeType,
+                        'Content-Type' => $mimeType,
                     ])
                     ->withBody(file_get_contents($pathImage), $mimeType)
                     ->timeout(30)
                     ->post($wpMediaEndpoint);
 
                 if ($response->successful()) {
-                    $mediaId  = $response->json('id');
+                    $mediaId = $response->json('id');
                     $mediaUrl = $response->json('source_url');
 
                     $altText = $gambar->alt_text ?: $artikel->kata_kunci ?: $artikel->judul;
@@ -274,22 +262,22 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
                         ->timeout(15)
                         ->patch("{$wpBaseUrl}/wp-json/wp/v2/media/{$mediaId}", [
                             'alt_text' => $altText,
-                            'title'    => $altText,
+                            'title' => $altText,
                         ]);
 
                     $gambar->update([
-                        'wp_media_id'  => $mediaId,
+                        'wp_media_id' => $mediaId,
                         'wp_media_url' => $mediaUrl,
                     ]);
 
                     Log::info("Gambar ID {$gambar->id} berhasil diupload otomatis ke WP", [
-                        'artikel_id'  => $artikel->id,
+                        'artikel_id' => $artikel->id,
                         'wp_media_id' => $mediaId,
                         'wp_media_url' => $mediaUrl,
                     ]);
                 } else {
                     Log::warning("Gagal upload gambar ID {$gambar->id} ke WordPress", [
-                        'status'   => $response->status(),
+                        'status' => $response->status(),
                         'response' => $response->body(),
                     ]);
                 }

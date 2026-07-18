@@ -106,7 +106,7 @@
                 </div>
 
                 <!-- Toggle Auto Publish -->
-                <div class="flex items-center pt-2">
+                <div class="flex items-center pt-2 hidden">
                     <label class="inline-flex items-center cursor-pointer">
                         <input type="checkbox" id="modal-publikasi-otomatis" name="publikasi_otomatis" value="1"
                             class="sr-only peer">

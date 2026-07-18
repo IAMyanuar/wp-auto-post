@@ -60,7 +60,6 @@
                         <th class="py-4 px-5 text-sm font-semibold">Nama Website</th>
                         <th class="py-4 px-5 text-sm font-semibold">URL Website</th>
                         <th class="py-4 px-5 text-sm font-semibold">Username</th>
-                        <th class="py-4 px-5 text-sm font-semibold">Auto Publish</th>
                         <th class="py-4 px-5 text-sm font-semibold text-right rounded-tr-xl">Aksi</th>
                     </tr>
                 </thead>
@@ -72,17 +71,6 @@
                             <td class="py-4 px-5 text-sm text-gray-600"><a href="{{ $client->url_website }}" target="_blank"
                                     class="text-blue-500 hover:underline">{{ $client->url_website }}</a></td>
                             <td class="py-4 px-5 text-sm text-gray-600">{{ $client->username }}</td>
-                            <td class="py-4 px-5 text-sm">
-                                @if($client->publikasi_otomatis)
-                                    <span
-                                        class="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full font-semibold border border-green-200">Auto
-                                        (ON)</span>
-                                @else
-                                    <span
-                                        class="px-3 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-semibold border border-gray-200">Manual
-                                        (OFF)</span>
-                                @endif
-                            </td>
                             <td class="py-4 px-5 text-sm text-right flex justify-end gap-2">
                                 <!-- Edit Button -->
                                 <button type="button"
@@ -201,7 +189,7 @@
     {{-- Toast Notification --}}
     <div id="toast-notification"
         class="fixed top-6 right-6 z-[1000] flex items-center gap-3 px-5 py-3.5 bg-gradient-to-br from-[#0d0d0d] via-[#1e1b4b] to-[#0d0d0d] text-white text-sm font-medium
-                                       rounded-2xl shadow-2xl opacity-0 -translate-y-4 pointer-events-none transition-all duration-300">
+                                           rounded-2xl shadow-2xl opacity-0 -translate-y-4 pointer-events-none transition-all duration-300">
         <span id="toast-icon"
             class="w-5 h-5 text-emerald-400 flex-shrink-0 block icon-[material-symbols-light--check-circle-outline]"></span>
         <span id="toast-text"></span>
