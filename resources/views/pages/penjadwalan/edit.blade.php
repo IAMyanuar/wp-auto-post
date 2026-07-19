@@ -231,9 +231,40 @@
                                         3</strong></span>
                             </div>
 
+                            @if(is_array($cekTerakhir->kata_duplikat) && count($cekTerakhir->kata_duplikat) > 0)
+                                <div class="border-t border-gray-100 pt-3">
+                                    <script id="data-snips-duplikat" type="application/json">
+                                        @json($cekTerakhir->kata_duplikat ?? [])
+                                    </script>
+                                    <div class="flex items-center justify-between mb-2 gap-2">
+                                        <p class="text-xs font-bold text-gray-700">Kalimat Duplikat
+                                            ({{ count($cekTerakhir->kata_duplikat) }}):</p>
+                                        <div class="flex gap-1.5 flex-shrink-0">
+                                            <button type="button" onclick="sorotDuplikatDariData()"
+                                                class="px-2 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-[11px] font-bold rounded cursor-pointer transition-all shadow-2xs">
+                                                Sorot di Editor
+                                            </button>
+                                            <button type="button" onclick="hapusSorotanDuplikat()"
+                                                class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[11px] font-bold rounded cursor-pointer transition-all shadow-2xs">
+                                                Hapus Sorotan
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <ul class="space-y-1.5 max-h-40 overflow-y-auto text-xs pr-1">
+                                        @foreach($cekTerakhir->kata_duplikat as $snip)
+                                            @if(!empty(trim($snip)))
+                                                <li class="p-2 bg-red-50/80 text-red-800 rounded-lg border border-red-200/60 font-medium">
+                                                    "{{ trim($snip) }}"
+                                                </li>
+                                            @endif
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+
                             @if(is_array($cekTerakhir->hasil) && count($cekTerakhir->hasil) > 0)
                                 <div class="border-t border-gray-100 pt-3">
-                                    <p class="text-xs font-bold text-gray-700 mb-2">Sumber Duplikat Terdeteksi:</p>
+                                    <p class="text-xs font-bold text-gray-700 mb-2">Sumber Duplikat:</p>
                                     <ul class="space-y-2 max-h-48 overflow-y-auto text-xs pr-1">
                                         @foreach($cekTerakhir->hasil as $dup)
                                             <li class="p-2.5 bg-gray-50 rounded-lg border border-gray-200/60">
@@ -365,13 +396,13 @@
                         const div = document.createElement('div');
                         div.className = 'flex items-center gap-3 p-2.5 bg-white border border-orange-200 rounded-xl shadow-2xs overflow-hidden';
                         div.innerHTML = `
-                                                                                                <div class="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
-                                                                                                    <img src="${e.target.result}" class="w-full h-full object-cover">
-                                                                                                </div>
-                                                                                                <div class="flex-1 min-w-0">
-                                                                                                    <p class="text-xs font-semibold text-gray-800 truncate" title="${file.name}">${file.name}</p>
-                                                                                                </div>
-                                                                                            `;
+                                                                                                    <div class="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
+                                                                                                        <img src="${e.target.result}" class="w-full h-full object-cover">
+                                                                                                    </div>
+                                                                                                    <div class="flex-1 min-w-0">
+                                                                                                        <p class="text-xs font-semibold text-gray-800 truncate" title="${file.name}">${file.name}</p>
+                                                                                                    </div>
+                                                                                                `;
                         thumbnails.appendChild(div);
                     };
                     reader.readAsDataURL(file);
@@ -383,7 +414,177 @@
             }
         }
 
+        function sorotDuplikatDariData() {
+            const el = document.getElementById('data-snips-duplikat');
+            if (!el) {
+                console.warn('Elemen data-snips-duplikat tidak ditemukan.');
+                return;
+            }
+            try {
+                const snips = JSON.parse(el.textContent);
+                console.log('Menyorot duplikat dengan data snips:', snips);
+                sorotDuplikatDiEditor(snips);
+            } catch (e) {
+                console.error('Gagal membaca data snips:', e);
+            }
+        }
+
+        function sorotDuplikatDiEditor(snips) {
+            const editor = (typeof tinymce !== 'undefined') ? tinymce.get('konten') : null;
+            // Jika snips dari PHP ter-encode sebagai Object {0: "...", 1: "..."}, konversi menjadi Array menggunakan Object.values(snips)
+            const snipsArray = Array.isArray(snips) ? snips : (typeof snips === 'object' && snips !== null ? Object.values(snips) : []);
+            
+            if (!editor || !editor.getBody() || !snipsArray || !snipsArray.length) {
+                console.warn('Editor TinyMCE atau data snips tidak tersedia.', { editor, snipsArray });
+                return;
+            }
+
+            hapusSorotanDuplikat();
+
+            let hasMatch = false;
+            const body = editor.getBody();
+
+            // Siapkan daftar kalimat/phrase dari snipsArray
+            let searchPhrases = [];
+            snipsArray.forEach(function (snip) {
+                if (!snip || typeof snip !== 'string' || snip.trim() === '') return;
+                const cleanText = snip.replace(/\u00A0/g, ' ').replace(/\\u00a0/g, ' ').trim();
+                if (!cleanText) return;
+
+                const words = cleanText.split(/\s+/).filter(Boolean);
+                if (words.length <= 6) {
+                    searchPhrases.push(cleanText);
+                } else {
+                    // Jika kalimat panjang (> 6 kata), ambil potongan kalimat atau penggalan 4 kata
+                    const sentences = cleanText.split(/(?<=[.?!;])\s+|\r?\n+/).filter(s => s.trim().length >= 8);
+                    if (sentences.length > 0) {
+                        sentences.forEach(s => {
+                            const sWords = s.trim().split(/\s+/).filter(Boolean);
+                            if (sWords.length <= 6) {
+                                searchPhrases.push(s.trim());
+                            } else {
+                                for (let i = 0; i < sWords.length; i += 4) {
+                                    const chunk = sWords.slice(i, i + 4).join(' ');
+                                    if (chunk.length >= 8) searchPhrases.push(chunk);
+                                }
+                            }
+                        });
+                    } else {
+                        for (let i = 0; i < words.length; i += 4) {
+                            const chunk = words.slice(i, i + 4).join(' ');
+                            if (chunk.length >= 8) searchPhrases.push(chunk);
+                        }
+                    }
+                }
+            });
+
+            console.log('Daftar phrase yang dicari di dalam teks editor:', searchPhrases);
+
+            searchPhrases.forEach(function (phrase) {
+                if (!phrase || typeof phrase !== 'string' || phrase.trim() === '') return;
+                const normalizedPhrase = phrase.replace(/\u00A0/g, ' ').trim();
+                if (normalizedPhrase.length < 3) return;
+
+                // Gunakan TreeWalker baru di setiap phrase untuk memastikan node teks yang diproses selalu yang aktif dan tidak terlepas (detached) dari DOM
+                const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null, false);
+                const textNodes = [];
+                let currentNode;
+                while (currentNode = walker.nextNode()) {
+                    if (currentNode.parentNode && currentNode.parentNode.nodeName !== 'MARK' && currentNode.nodeValue.trim() !== '') {
+                        textNodes.push(currentNode);
+                    }
+                }
+
+                textNodes.forEach(function (node) {
+                    let text = node.nodeValue;
+                    let normalizedText = text.replace(/\u00A0/g, ' ');
+                    const idx = normalizedText.toLowerCase().indexOf(normalizedPhrase.toLowerCase());
+                    if (idx !== -1) {
+                        hasMatch = true;
+                        try {
+                            const beforeText = text.substring(0, idx);
+                            const matchedText = text.substring(idx, idx + phrase.length);
+                            const afterText = text.substring(idx + phrase.length);
+
+                            const markEl = document.createElement('mark');
+                            markEl.className = 'dup-marker';
+                            markEl.setAttribute('data-plagiasi', 'true');
+                            markEl.style.cssText = 'background-color: #fef08a; color: #991b1b; padding: 2px 4px; border-radius: 4px;';
+                            markEl.textContent = matchedText;
+
+                            const parent = node.parentNode;
+                            if (parent) {
+                                if (beforeText) parent.insertBefore(document.createTextNode(beforeText), node);
+                                parent.insertBefore(markEl, node);
+                                if (afterText) parent.insertBefore(document.createTextNode(afterText), node);
+                                parent.removeChild(node);
+                            }
+                        } catch (domErr) {
+                            console.error('DOM split error:', domErr);
+                        }
+                    }
+                });
+            });
+
+            editor.nodeChanged();
+
+            if (hasMatch) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Tersorot!',
+                        text: 'Kalimat/potongan duplikat telah ditandai dengan latar kuning di dalam editor TinyMCE.',
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+                } else {
+                    alert('Kalimat/potongan duplikat telah ditandai dengan latar kuning di dalam editor.');
+                }
+            } else {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Tidak Ditemukan Persis',
+                        text: 'Potongan kalimat duplikat tidak ditemukan persis di dalam editor (mungkin ada perbedaan spasi, format, atau sudah diubah).'
+                    });
+                } else {
+                    alert('Potongan kalimat duplikat tidak ditemukan persis di dalam editor.');
+                }
+            }
+        }
+
+        function hapusSorotanDuplikat() {
+            const editor = (typeof tinymce !== 'undefined') ? tinymce.get('konten') : null;
+            if (!editor || !editor.getBody()) return;
+            const marks = editor.getBody().querySelectorAll('mark.dup-marker, span.dup-marker, mark[data-plagiasi="true"]');
+            marks.forEach(mark => {
+                const parent = mark.parentNode;
+                if (parent) {
+                    while (mark.firstChild) {
+                        parent.insertBefore(mark.firstChild, mark);
+                    }
+                    parent.removeChild(mark);
+                }
+            });
+            editor.nodeChanged();
+        }
+
+        // Ekspos fungsi secara eksplisit ke scope global agar selalu bisa dipanggil dari atribut onclick di HTML
+        window.sorotDuplikatDariData = sorotDuplikatDariData;
+        window.sorotDuplikatDiEditor = sorotDuplikatDiEditor;
+        window.hapusSorotanDuplikat = hapusSorotanDuplikat;
+
         document.addEventListener('DOMContentLoaded', function () {
+            const mainForm = document.querySelector('form');
+            if (mainForm) {
+                mainForm.addEventListener('submit', function () {
+                    hapusSorotanDuplikat();
+                    if (typeof tinymce !== 'undefined') {
+                        tinymce.triggerSave();
+                    }
+                });
+            }
+
             const btnCekPlagiasi = document.getElementById('btn-cek-plagiasi');
             if (btnCekPlagiasi) {
                 btnCekPlagiasi.addEventListener('click', function () {

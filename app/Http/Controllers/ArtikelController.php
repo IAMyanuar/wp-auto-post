@@ -292,7 +292,7 @@ class ArtikelController extends Controller
 
             $body = [
                 'title' => $artikel->judul,
-                'content' => $artikel->konten,
+                'content' => \App\Models\Artikel::cleanDuplicateMarkers($artikel->konten),
                 'category' => is_array($artikel->kategori) ? implode(', ', $artikel->kategori) : (string) ($artikel->kategori ?? ''),
                 'tags' => is_array($artikel->tags) ? implode(', ', $artikel->tags) : (string) ($artikel->tags ?? ''),
             ];

@@ -58,9 +58,53 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
-start project develop
+## Cara Menjalankan Project
 
+### 🛠️ 1. Mode Development (Lokal)
+Jalankan 4 perintah berikut di 4 terminal yang berbeda:
+```bash
 php artisan serve
 php artisan schedule:work
 php artisan reverb:start --port=8800
 php artisan queue:work --tries=3 --timeout=120
+```
+
+---
+
+### 🚀 2. Mode Production (di aaPanel VPS)
+
+Di lingkungan **Production (aaPanel)**, penanganan perintah sangat berbeda dengan di komputer lokal/development:
+- `php artisan serve` **TIDAK DIPAKAI** karena Nginx aaPanel sudah menangani routing ke folder `/public`.
+- `php artisan schedule:work` **TIDAK DIPAKAI DI SUPERVISOR** karena standar resmi Laravel di production menggunakan **Cron Job aaPanel (`schedule:run`)** setiap 1 menit agar tidak terjadi *memory leak*.
+- `reverb:start` dan `queue:work` **WAJIB DIPASANG DI SUPERVISOR MANAGER aaPanel**.
+
+#### A. Konfigurasi di Supervisor Manager (Menu App Store > Supervisor)
+Pastikan **Run Directory** mengarah ke folder website kamu (misal: `/www/wwwroot/autopost.semesta.com`).
+
+**1. Daemon Reverb (WebSocket Server):**
+- **Name:** `wp-auto-post-reverb`
+- **Run User:** `www`
+- **Start Command:**
+  ```bash
+  /www/server/php/82/bin/php artisan reverb:start --host="127.0.0.1" --port=8080
+  ```
+
+**2. Daemon Queue Worker (Proses Antrean Auto Post):**
+- **Name:** `wp-auto-post-queue`
+- **Run User:** `www`
+- **Start Command:**
+  ```bash
+  /www/server/php/82/bin/php artisan queue:work database --tries=3 --timeout=120 --sleep=3
+  ```
+
+#### B. Konfigurasi di Cron aaPanel (Menu Cron > Add Cron)
+Untuk menjalankan penjadwalan/jadwal otomatis (Schedule), tambahkan Cron Job di aaPanel:
+- **Type of Task:** `Shell Script`
+- **Name:** `Laravel Scheduler AutoPost`
+- **Execution cycle:** `N minutes` -> `1 Minute` *(Setiap 1 menit)*
+- **Script content:**
+  ```bash
+  /www/server/php/82/bin/php /www/wwwroot/autopost.semesta.com/artisan schedule:run >> /dev/null 2>&1
+  ```
+*(Catatan: Sesuaikan `/php/82/` dengan versi PHP yang kamu pakai di aaPanel, misal `/php/83/` jika memakai PHP 8.3)*.
+

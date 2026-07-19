@@ -131,6 +131,26 @@
                                         'border' => 'border-gray-200',
                                         'dot' => 'bg-gray-500',
                                     ];
+                                    if ($artikel->status === 'terpublish' && !empty($artikel->wp_url) && str_contains($artikel->wp_url, '?p=')) {
+                                        $sc = [
+                                            'label' => 'Draft di WP',
+                                            'bg' => 'bg-purple-50',
+                                            'text' => 'text-purple-700',
+                                            'border' => 'border-purple-200',
+                                            'dot' => 'bg-purple-500',
+                                        ];
+                                    }
+                                    if (empty($artikel->konten) || !$artikel->gambars || $artikel->gambars->isEmpty()) {
+                                        if ($artikel->status === 'terjadwal' || ($artikel->status === 'terpublish' && !empty($artikel->wp_url) && str_contains($artikel->wp_url, '?p='))) {
+                                            $sc = [
+                                                'label' => 'terjadwal(data belum lengkap)',
+                                                'bg' => 'bg-blue-50',
+                                                'text' => 'text-blue-700',
+                                                'border' => 'border-blue-200',
+                                                'dot' => 'bg-blue-500',
+                                            ];
+                                        }
+                                    }
                                 @endphp
                                 <td class="py-4 px-5 text-sm">
                                     <span data-badge-id="{{ $artikel->id }}"
@@ -245,6 +265,26 @@
                                 'border' => 'border-gray-200',
                                 'dot' => 'bg-gray-500',
                             ];
+                            if ($artikel->status === 'terpublish' && !empty($artikel->wp_url) && str_contains($artikel->wp_url, '?p=')) {
+                                $sc = [
+                                    'label' => 'Draft di WP',
+                                    'bg' => 'bg-purple-50',
+                                    'text' => 'text-purple-700',
+                                    'border' => 'border-purple-200',
+                                    'dot' => 'bg-purple-500',
+                                ];
+                            }
+                            if (empty($artikel->konten) || !$artikel->gambars || $artikel->gambars->isEmpty()) {
+                                if ($artikel->status === 'terjadwal' || ($artikel->status === 'terpublish' && !empty($artikel->wp_url) && str_contains($artikel->wp_url, '?p='))) {
+                                    $sc = [
+                                        'label' => 'terjadwal(data belum lengkap)',
+                                        'bg' => 'bg-blue-50',
+                                        'text' => 'text-blue-700',
+                                        'border' => 'border-blue-200',
+                                        'dot' => 'bg-blue-500',
+                                    ];
+                                }
+                            }
                         @endphp
                         <div class="px-4 py-3 bg-gray-50 border-t border-gray-100">
                             <div class="flex items-center justify-end mb-3">
@@ -374,7 +414,20 @@
             const POLL_DELAY = 1500; // 1.5 detik (lebih responsif untuk menangkap progress realtime)
 
             function updateBadge(artikelId, status) {
-                const cfg = statusConfig[status] ?? statusConfig['diproses'];
+                let cfg = statusConfig[status] ?? statusConfig['diproses'];
+                const actionContainer = document.querySelector(`[data-action-id="${artikelId}"]`);
+                const wpUrl = actionContainer ? actionContainer.dataset.wpUrl || '' : '';
+
+                if (status === 'terpublish' && wpUrl && wpUrl.includes('?p=')) {
+                    cfg = {
+                        label: 'Draft di WP',
+                        bg: 'bg-purple-50',
+                        text: 'text-purple-700',
+                        border: 'border-purple-200',
+                        dot: 'bg-purple-500'
+                    };
+                }
+
                 // Update semua elemen badge milik artikel ini (desktop + mobile)
                 document.querySelectorAll(`[data-badge-id="${artikelId}"]`).forEach(badge => {
                     badge.className = `inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${cfg.bg} ${cfg.text} ${cfg.border}`;

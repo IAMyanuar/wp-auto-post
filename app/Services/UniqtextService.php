@@ -67,8 +67,42 @@ class UniqtextService
                 ];
             }
 
-            $data = $response->json() ?? [];
-            $dupRate = isset($data['dup_rate']) ? (int) $data['dup_rate'] : 0;
+            $rawBody = trim($response->body());
+            Log::info("UniqtextService: Raw response dari API Uniqtext (Artikel ID {$artikel->id})", [
+                'body' => $rawBody,
+            ]);
+
+            // Decode robust untuk menangani bila respons berupa string JSON ganda, ada BOM, atau Content-Type bukan JSON murni
+            $data = $response->json();
+            if (!is_array($data)) {
+                $cleanBody = preg_replace('/^[\xEF\xBB\xBF]+/', '', $rawBody);
+                $decoded = json_decode($cleanBody, true);
+                if (is_string($decoded)) {
+                    $decoded = json_decode($decoded, true);
+                }
+                if (!is_array($decoded) && preg_match('/\{.*\}/s', $cleanBody, $matches)) {
+                    $decoded = json_decode($matches[0], true);
+                    if (is_string($decoded)) {
+                        $decoded = json_decode($decoded, true);
+                    }
+                }
+                $data = is_array($decoded) ? $decoded : [];
+            }
+
+            if (isset($data['snips_dup']) && is_string($data['snips_dup'])) {
+                $decodedSnips = json_decode($data['snips_dup'], true);
+                if (is_array($decodedSnips)) {
+                    $data['snips_dup'] = $decodedSnips;
+                }
+            }
+            if (isset($data['hasil']) && is_string($data['hasil'])) {
+                $decodedHasil = json_decode($data['hasil'], true);
+                if (is_array($decodedHasil)) {
+                    $data['hasil'] = $decodedHasil;
+                }
+            }
+
+            $dupRate = isset($data['dup_rate']) ? (int) $data['dup_rate'] : (isset($data['percent_dup']) ? (int) $data['percent_dup'] : 0);
             $snipsDup = is_array($data['snips_dup'] ?? null) ? $data['snips_dup'] : [];
             $hasil = is_array($data['hasil'] ?? null) ? $data['hasil'] : [];
 
@@ -89,14 +123,6 @@ class UniqtextService
                 'percobaan_ke' => $percobaanKe,
                 'found' => count($hasil),
             ]);
-
-            $remainingQuota = $this->getRemainingQuotaQuick();
-            $this->sendTeamReport(
-                content: $cleanText,
-                found: count($hasil),
-                length: str_word_count($cleanText),
-                remainingQuota: $remainingQuota
-            );
 
             return [
                 'success' => true,
@@ -124,35 +150,12 @@ class UniqtextService
 
     /**
      * Mengirimkan laporan hasil pengecekan agar tersimpan di Web Covenant.
+     * Dinonaktifkan sementara karena kendala error dari server Covenant (Team_model.php).
      */
     public function sendTeamReport(string $content, int $found, int $length, int $remainingQuota): void
     {
-        $uid = config('services.uniqtext.uid');
-
-        if (empty($uid)) {
-            Log::warning('UniqtextService: UNIQTEXT_UID tidak dikonfigurasi, lewati pengiriman teamreport.');
-            return;
-        }
-
-        try {
-            $response = Http::withoutVerifying()
-                ->timeout(30)
-                ->asForm()
-                ->post(self::REPORT_API_URL, [
-                    'timezone' => 'Asia/Bangkok',
-                    'content' => $content,
-                    'uid' => $uid,
-                    'found' => $found,
-                    'length' => $length,
-                    'remaining_quota' => $remainingQuota,
-                ]);
-
-            Log::info('UniqtextService: Team report dikirim ke Covenant', [
-                'status' => $response->status(),
-            ]);
-        } catch (\Exception $e) {
-            Log::error("UniqtextService: Exception saat mengirim team report: {$e->getMessage()}");
-        }
+        Log::info('UniqtextService: Pengiriman team report dinonaktifkan.');
+        return;
     }
 
     /**

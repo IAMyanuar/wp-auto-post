@@ -78,7 +78,9 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
         $wpResult = $this->sendToWordPress($artikel);
 
         if ($wpResult['success']) {
-            $statusAkhir = ($artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now()) ? 'terpublish' : 'terjadwal';
+            $artikel->loadMissing('gambars');
+            $hasCompleteData = !empty(trim($artikel->konten ?? '')) && $artikel->gambars->isNotEmpty();
+            $statusAkhir = ($artikel->tanggal_jadwal && $artikel->tanggal_jadwal <= now() && $hasCompleteData) ? 'terpublish' : 'terjadwal';
 
             $updateData = [
                 'status' => $statusAkhir,
@@ -146,7 +148,7 @@ class ProsesDanKirimKeWordPressJob implements ShouldQueue
 
         $body = [
             'title' => $artikel->judul,
-            'content' => $artikel->konten,
+            'content' => \App\Models\Artikel::cleanDuplicateMarkers($artikel->konten),
             'category' => (string) ($artikel->kategori ?? ''),
             'tags' => (string) ($artikel->tags ?? ''),
             'status' => $wpStatus,

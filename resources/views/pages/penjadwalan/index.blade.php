@@ -101,8 +101,25 @@
                         @forelse($artikels as $key => $artikel)
                             @php
                                 $sc = $statusConfig[$artikel->status] ?? $statusConfig['diproses'];
-                                if ($artikel->status === 'terjadwal' && (empty($artikel->konten) || !$artikel->gambars || $artikel->gambars->isEmpty())) {
-                                    $sc['label'] = 'terjadwal(data belum lengkap)';
+                                if ($artikel->status === 'terpublish' && !empty($artikel->wp_url) && str_contains($artikel->wp_url, '?p=')) {
+                                    $sc = [
+                                        'label' => 'Draft di WP',
+                                        'bg' => 'bg-purple-50',
+                                        'text' => 'text-purple-700',
+                                        'border' => 'border-purple-200',
+                                        'dot' => 'bg-purple-500',
+                                    ];
+                                }
+                                if (empty($artikel->konten) || !$artikel->gambars || $artikel->gambars->isEmpty()) {
+                                    if ($artikel->status === 'terjadwal' || ($artikel->status === 'terpublish' && !empty($artikel->wp_url) && str_contains($artikel->wp_url, '?p='))) {
+                                        $sc = [
+                                            'label' => 'terjadwal(data belum lengkap)',
+                                            'bg' => 'bg-blue-50',
+                                            'text' => 'text-blue-700',
+                                            'border' => 'border-blue-200',
+                                            'dot' => 'bg-blue-500',
+                                        ];
+                                    }
                                 }
                             @endphp
                             <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors"
@@ -171,8 +188,25 @@
                 @forelse($artikels as $key => $artikel)
                     @php
                         $sc = $statusConfig[$artikel->status] ?? $statusConfig['diproses'];
-                        if ($artikel->status === 'terjadwal' && (empty($artikel->konten) || !$artikel->gambars || $artikel->gambars->isEmpty())) {
-                            $sc['label'] = 'terjadwal(data belum lengkap)';
+                        if ($artikel->status === 'terpublish' && !empty($artikel->wp_url) && str_contains($artikel->wp_url, '?p=')) {
+                            $sc = [
+                                'label' => 'Draft di WP',
+                                'bg' => 'bg-purple-50',
+                                'text' => 'text-purple-700',
+                                'border' => 'border-purple-200',
+                                'dot' => 'bg-purple-500',
+                            ];
+                        }
+                        if (empty($artikel->konten) || !$artikel->gambars || $artikel->gambars->isEmpty()) {
+                            if ($artikel->status === 'terjadwal' || ($artikel->status === 'terpublish' && !empty($artikel->wp_url) && str_contains($artikel->wp_url, '?p='))) {
+                                $sc = [
+                                    'label' => 'terjadwal(data belum lengkap)',
+                                    'bg' => 'bg-blue-50',
+                                    'text' => 'text-blue-700',
+                                    'border' => 'border-blue-200',
+                                    'dot' => 'bg-blue-500',
+                                ];
+                            }
                         }
                     @endphp
                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden w-full min-w-0"

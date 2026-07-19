@@ -90,4 +90,26 @@ class Artikel extends Model
     {
         return $this->status === 'diproses';
     }
+
+    public function setKontenAttribute($value)
+    {
+        $this->attributes['konten'] = self::cleanDuplicateMarkers($value);
+    }
+
+    /**
+     * Membersihkan tag penanda sorotan plagiasi/duplikat (<mark>, <span>) agar tidak terbawa saat save atau kirim ke WordPress.
+     */
+    public static function cleanDuplicateMarkers(?string $konten): string
+    {
+        if (empty($konten)) {
+            return '';
+        }
+
+        // Hapus tag <mark class="dup-marker"...> dan <span class="dup-marker"...> tetapi pertahankan isi teksnya
+        $cleaned = preg_replace('/<mark[^>]*class="[^"]*dup-marker[^"]*"[^>]*>(.*?)<\/mark>/is', '$1', $konten);
+        $cleaned = preg_replace('/<span[^>]*class="[^"]*dup-marker[^"]*"[^>]*>(.*?)<\/span>/is', '$1', $cleaned);
+        $cleaned = preg_replace('/<mark[^>]*data-plagiasi="true"[^>]*>(.*?)<\/mark>/is', '$1', $cleaned);
+
+        return $cleaned;
+    }
 }
